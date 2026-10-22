@@ -1,4 +1,4 @@
-// Owner: Alexandra. Real Jira Cloud (stretch of the integration track). Token never reaches the client.
+﻿// Owner: Alexandra. Real Jira Cloud (stretch of the integration track). Token never reaches the client.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { requireAuth, requireUid, REGION } from '../lib/auth';
