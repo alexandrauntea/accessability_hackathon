@@ -8,7 +8,7 @@ import { useAuth } from '@/src/shared/hooks/useAuth';
 import type { ColorValue } from 'react-native';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
-const icon = (name: IconName) => ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={name} color={color} size={size} />;
+const icon = (name: IconName) => ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={name} color={typeof color === 'string' ? color : undefined} size={size} />;
 
 export default function TabsLayout() {
   const { c, font, motion } = useTheme();
