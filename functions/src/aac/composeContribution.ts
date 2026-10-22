@@ -2,7 +2,7 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY } from '../lib/ai';
-import { requireUid, REGION } from '../lib/auth';
+import { requireAuth, requireUid, REGION } from '../lib/auth';
 
 const Out = z.object({ spoken: z.string().max(400), chat: z.string().max(600) });
 const SYSTEM = `You voice meeting contributions for an employee who communicates in writing (autistic, non-speaking, or anxious).
@@ -12,7 +12,7 @@ chat: the same content, may use a short list. Never mention health, diagnosis or
 status_update mode: summarise only from the task list given (done / in progress / blocked + what is needed to unblock).`;
 
 export const composeContribution = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, async (req) => {
-  requireUid(req);
+  requireAuth(req);
   const { draft, meetingTitle, tasks, mode } = req.data as { draft: string; meetingTitle?: string; tasks?: { id: string; title: string; status: string }[]; mode: 'polish' | 'status_update' };
   const prompt = `Mode: ${mode}. Meeting: ${meetingTitle ?? 'unknown'}.
 User's words: """${(draft ?? '').slice(0, 1500)}"""

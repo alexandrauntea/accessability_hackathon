@@ -1,7 +1,7 @@
 // Owner: Alexandra. Real Jira Cloud (stretch of the integration track). Token never reaches the client.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
-import { requireUid, REGION } from '../lib/auth';
+import { requireAuth, requireUid, REGION } from '../lib/auth';
 import type { WorkTask } from '../lib/types';
 
 const JIRA_EMAIL = defineSecret('JIRA_EMAIL');
@@ -12,7 +12,7 @@ const mapStatus = (cat: string, name: string): WorkTask['status'] =>
 const mapPriority = (p?: string): WorkTask['priority'] => (/high|highest|critical/i.test(p ?? '') ? 'high' : /low/i.test(p ?? '') ? 'low' : 'medium');
 
 export const jiraIssues = onCall({ region: REGION, secrets: [JIRA_EMAIL, JIRA_TOKEN] }, async (req) => {
-  requireUid(req);
+  requireAuth(req);
   const base = process.env.JIRA_BASE_URL;
   if (!base || JIRA_EMAIL.value() === 'none') throw new HttpsError('failed-precondition', 'Jira not configured');
   const jql = process.env.JIRA_JQL ?? 'assignee=currentUser() AND statusCategory!=Done';
