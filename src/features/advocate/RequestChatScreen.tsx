@@ -1,14 +1,16 @@
-// Owner: Alina. Clarifying chat -> editable draft -> explicit confirmation -> send.
+﻿// Owner: Alina. Clarifying chat -> editable draft -> explicit confirmation -> send.
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { AiBadge, AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
 import { advocateChat, sendRequest } from '@/src/shared/api';
+import { useFeedback } from '@/src/shared/hooks/useFeedback';
 import { saveDraftEdits, watchRequest } from './requestRepo';
 import type { AccommodationRequest, AdvocateReply } from '@/src/shared/types';
 
 export default function RequestChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { confirm: confirmFeedback } = useFeedback();
   const [req, setReq] = useState<AccommodationRequest | null>(null);
   const [text, setText] = useState('');
   const [last, setLast] = useState<AdvocateReply | null>(null);
@@ -25,8 +27,13 @@ export default function RequestChatScreen() {
   async function submit() {
     if (!id || !confirmed) return;
     setBusy(true);
-    try { const r = await sendRequest({ requestId: id, confirm: true }); setSent(r.mode === 'mock' ? 'Saved to outbox (demo mode, no real email sent).' : 'Email sent.'); }
-    finally { setBusy(false); }
+    try {
+      const r = await sendRequest({ requestId: id, confirm: true });
+      await confirmFeedback();
+      setSent(r.mode === 'mock' ? 'Saved to outbox (demo mode, no real email sent).' : 'Email sent.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   const draft = req?.draft;

@@ -20,56 +20,102 @@ export default function TodayScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(useCallback(() => { getTodayCheckin().then(setToday).catch(() => {}); }, []));
+  const refreshToday = useCallback(() => {
+    getTodayCheckin().then(setToday).catch(() => {});
+  }, []);
+
+  useFocusEffect(refreshToday);
 
   async function summarize() {
-    setBusy(true); setError(null);
+    setBusy(true);
+    setError(null);
     try {
       const recent = await listCheckins(42);
-      setSummary(await summarizeState({ date: todayISO(), stats: computeStats(recent, profile?.trackedMetrics ?? []), recent: recent.slice(0, 7), simpleLanguage: !!profile?.a11y?.simpleLanguage }));
-    } catch { setError('The summary is not available right now. Your data is safe; try again in a minute.'); }
-    finally { setBusy(false); }
+      const computed = computeStats(recent, profile?.trackedMetrics ?? []);
+      const result = await summarizeState({
+        date: todayISO(),
+        stats: computed,
+        recent: recent.slice(0, 7),
+        simpleLanguage: !!profile?.a11y?.simpleLanguage,
+      });
+      setSummary(result);
+    } catch {
+      setError('The summary is not available right now. Your data is safe; try again in a minute.');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const metricsLine = today ? (Object.keys(today.metrics) as MetricKey[]).map((k) => `${METRICS[k].label} ${today.metrics[k]}/10`).join(' · ') : '';
-  const spoken = today ? `Daily capacity ${today.capacityScore} of 10. ${metricsLine}. ${summary?.headline ?? ''}` : 'No check-in yet today.';
+  const metricsLine = today
+    ? (Object.keys(today.metrics) as MetricKey[])
+        .filter((k) => typeof today.metrics[k] === 'number')
+        .map((k) => `${METRICS[k]?.label ?? k} ${today.metrics[k]}/10`)
+        .join(' · ')
+    : '';
+
+  const spoken = today
+    ? `Daily capacity ${today.capacityScore} of 10. ${metricsLine}. ${summary?.headline ?? ''}`
+    : 'No check-in yet today. Rate your scales in about 10 seconds.';
 
   return (
     <Screen title={profile?.displayName ? `Today, ${profile.displayName}` : 'Today'} speakText={spoken}>
       {!today ? (
         <Card>
-          <AppText variant="h2">Check-in: about 10 seconds</AppText>
-          <AppText>Rate {profile?.trackedMetrics?.length ?? 2} scales or say one sentence. The day plan adapts to it.</AppText>
-          <AppButton label="Check in now" onPress={() => router.push('/checkin')} />
+          <AppText variant="h2">Daily check-in: about 10 seconds</AppText>
+          <AppText>Rate {profile?.trackedMetrics?.length ?? 2} scales or say one sentence. Your workday adapts to it.</AppText>
+          <AppButton label="Check in now" hint="Rate your personal scales for today" onPress={() => router.push('/checkin')} />
         </Card>
       ) : (
         <Card>
-          <AppText variant="h2">Daily capacity: {today.capacityScore}/10</AppText>
+          <AppText variant="h2">Daily capacity: {today.capacityScore} of 10</AppText>
           <AppText>{anchorFor({ anchors: CAPACITY_ANCHORS }, today.capacityScore)}</AppText>
-          <AppText variant="muted">{metricsLine}</AppText>
-          <AppButton label="Adapt my day to this" onPress={() => router.push('/day')} />
-          <AppButton kind="secondary" label="Update check-in" onPress={() => router.push('/checkin')} />
+          {metricsLine ? <AppText variant="muted">{metricsLine}</AppText> : null}
+          <AppButton label="Adapt my day to this" hint="View your AI-adapted schedule and tasks" onPress={() => router.push('/day')} />
+          <AppButton kind="secondary" label="Update check-in" hint="Adjust your ratings for today" onPress={() => router.push('/checkin')} />
         </Card>
       )}
 
-      <AppButton kind="secondary" label="Speak for me in a meeting" hint="Write or build your contribution; VibeCheck reads it aloud and copies it for the meeting chat" onPress={() => router.push('/speak')} />
+      <AppButton
+        kind="secondary"
+        label="Speak for me in a meeting"
+        hint="Write or build your contribution; VibeCheck reads it aloud and copies it for the meeting chat"
+        onPress={() => router.push('/speak')}
+      />
 
       <Card ai>
-        <AppText variant="h2">Patterns in my recent check-ins</AppText>
+        <AppText variant="h2">Summary of your recent weeks</AppText>
         {summary ? (
           <>
-            <AiBadge why="explains statistics computed from your last 6 weeks" />
+            <AiBadge why="Based on your last 6 weeks of check-ins; numbers computed by the app" />
             <AppText style={{ fontWeight: '700' }}>{summary.headline}</AppText>
             <AppText>{summary.summary}</AppText>
-            {summary.patterns.map((p) => <AppText key={p}>- {p}</AppText>)}
-            {summary.overloadSignal ? <AppText style={{ fontWeight: '700' }}>Signal: {summary.overloadSignal}</AppText> : null}
+            {summary.patterns.map((p) => (
+              <AppText key={p}>• {p}</AppText>
+            ))}
+            {summary.overloadSignal ? (
+              <AppText style={{ fontWeight: '700' }}>Signal: {summary.overloadSignal}</AppText>
+            ) : null}
           </>
-        ) : <AppText variant="muted">Get a short summary of your recent check-ins.</AppText>}
+        ) : (
+          <AppText variant="muted">Get an AI-grounded summary of patterns across your recent weeks.</AppText>
+        )}
         {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
-        <AppButton label={summary ? 'Refresh summary' : 'Summarise my recent weeks'} onPress={summarize} busy={busy} />
+        <AppButton
+          label={summary ? 'Refresh summary' : 'Summarise my recent weeks'}
+          hint="Calculates patterns across your check-in history"
+          onPress={summarize}
+          busy={busy}
+        />
       </Card>
 
-      {DEMO_TOOLS ? <DemoPersonaPicker /> : null}
+      {DEMO_TOOLS ? (
+        <DemoPersonaPicker
+          onSeeded={() => {
+            refreshToday();
+            summarize();
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }
