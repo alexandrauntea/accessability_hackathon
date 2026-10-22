@@ -316,8 +316,13 @@ export default function SettingsScreen() {
               <AppText>
                 Are you sure? This will permanently delete all your check-ins, AI summaries, day plans, and requests from Firestore. This action cannot be undone.
               </AppText>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <View style={{ flex: 1 }}>
+              <View
+                style={{
+                  flexDirection: a.fontScale > 1 ? 'column' : 'row',
+                  gap: 12,
+                }}
+              >
+                <View style={{ flex: a.fontScale > 1 ? undefined : 1 }}>
                   <AppButton
                     kind="secondary"
                     label="Cancel"
@@ -325,7 +330,7 @@ export default function SettingsScreen() {
                     onPress={() => setConfirmDelete(false)}
                   />
                 </View>
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: a.fontScale > 1 ? undefined : 1 }}>
                   <AppButton
                     kind="danger"
                     label="Yes, delete everything"
