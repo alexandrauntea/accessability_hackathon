@@ -3,18 +3,64 @@ rules_version = '2';
 // and only that user can read/write it. Cloud Functions use the Admin SDK and bypass rules.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function is1to10(v) {
+      return v is number && v >= 1 && v <= 10;
+    }
+
+    function validMetricVal(m, key) {
+      return !(key in m) || is1to10(m[key]);
+    }
+
+    function isValidCheckin() {
+      let data = request.resource.data;
+      let m = data.metrics;
+      return m is map &&
+        validMetricVal(m, 'physical_energy') &&
+        validMetricVal(m, 'pain') &&
+        validMetricVal(m, 'brain_fog') &&
+        validMetricVal(m, 'focus') &&
+        validMetricVal(m, 'sensory_load') &&
+        validMetricVal(m, 'social_battery') &&
+        validMetricVal(m, 'anxiety') &&
+        validMetricVal(m, 'overwhelm') &&
+        is1to10(data.capacityScore) &&
+        data.capacity in ['low', 'medium', 'high'] &&
+        (!('workedLateYesterday' in data) || data.workedLateYesterday is bool) &&
+        (!('source' in data) || data.source in ['manual', 'voice', 'repeat']) &&
+        (!('sleepHours' in data) || (data.sleepHours is number && data.sleepHours >= 0 && data.sleepHours <= 24));
+    }
 
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
-      match /checkins/{date} { allow read, write: if isOwner(uid); }
-      match /summaries/{date} { allow read: if isOwner(uid); allow write: if false; }
-      match /dayPlans/{date} { allow read, write: if isOwner(uid); }
-      match /requests/{id}  { allow read, write: if isOwner(uid); }
+      match /checkins/{date} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) && isValidCheckin();
+        allow delete: if isOwner(uid);
+      }
+      match /summaries/{date} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+      match /dayPlans/{date} {
+        allow read, write: if isOwner(uid);
+      }
+      match /requests/{id} {
+        allow read, write: if isOwner(uid);
+      }
       // outbox is written only by functions (sendRequest); user can read what was sent
-      match /outbox/{id}    { allow read: if isOwner(uid); allow write: if false; }
+      match /outbox/{id} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
     }
-    match /{document=**} { allow read, write: if false; }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
