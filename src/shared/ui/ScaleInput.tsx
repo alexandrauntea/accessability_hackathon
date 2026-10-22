@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Pressable, View } from 'react-native';
 import { AppText } from './AppText';
 import { useTheme } from '../theme/ThemeProvider';
@@ -6,7 +6,7 @@ import { MIN_TOUCH, space } from '../theme/tokens';
 import { anchorFor } from '../metrics';
 
 /**
- * 1-10 scale as ten large buttons (no drag gesture: works with tremor, RA flares, switch access, keyboard).
+ * 1-10 scale as ten large 52px buttons (no drag gesture: works with tremor, RA flares, switch access, keyboard).
  * Tab reaches each value, Space/Enter selects. Screen readers hear
  * "Physical energy, 3 of 10, Only short tasks from bed or sofa, selected".
  * Factual anchors instead of emojis.
@@ -24,15 +24,32 @@ export function ScaleInput({ label, question, value, onChange, anchors, highligh
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
           const on = value === n;
           return (
-            <Pressable key={n} onPress={() => onChange(n)}
+            <Pressable
+              key={n}
+              onPress={() => onChange(n)}
+              onKeyDown={(e: any) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault?.();
+                  onChange(n);
+                }
+              }}
               accessibilityRole="radio"
-              accessibilityState={{ checked: on }}
-              accessibilityLabel={`${label}, ${n} of 10, ${anchorFor({ anchors }, n)}`}
+              accessibilityState={{ checked: on, selected: on }}
+              accessibilityLabel={`${label}, ${n} of 10, ${anchorFor({ anchors }, n)}${on ? ', selected' : ''}`}
               style={(s: any) => ({
-                width: MIN_TOUCH + 4, height: MIN_TOUCH + 4, alignItems: 'center', justifyContent: 'center',
-                borderRadius: radius.sm, borderWidth: on ? 3 : 2, borderColor: on ? c.primary : c.border,
+                width: MIN_TOUCH + 4,
+                height: MIN_TOUCH + 4,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: radius.sm,
+                borderWidth: on ? 3 : 2,
+                borderColor: on ? c.primary : c.border,
                 backgroundColor: on ? c.primary : 'transparent',
-                outlineStyle: s.focused ? 'solid' : undefined, outlineWidth: s.focused ? 3 : 0, outlineColor: c.focus, outlineOffset: 2,
+                cursor: 'pointer',
+                outlineStyle: s.focused ? 'solid' : undefined,
+                outlineWidth: s.focused ? 3 : 0,
+                outlineColor: c.focus,
+                outlineOffset: 2,
               } as any)}>
               <AppText style={{ color: on ? c.onPrimary : c.text, fontWeight: '700', fontSize: font.body }}>{n}</AppText>
             </Pressable>
