@@ -1,68 +1,295 @@
-// Owner: Alina. First run, 4 short steps: consent -> who I am -> pick 2-3 metrics -> how the app should look/sound.
+﻿// Owner: Alina. 4-step onboarding flow:
+// 1. Choose category (large buttons, not a dropdown)
+// 2. Pick 2-3 metrics (from metrics.ts)
+// 3. Accessibility preferences (text size 100/125/150, low-sensory, high-contrast, simple language, haptics, sounds)
+// 4. Explicit consent to store health data + display name -> save via useProfile -> confirm() -> redirect.
 import React, { useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
 import { useProfile } from '@/src/shared/hooks/useProfile';
+import { useFeedback } from '@/src/shared/hooks/useFeedback';
+import { useTheme } from '@/src/shared/theme/ThemeProvider';
 import { CATEGORY_DEFAULTS, METRICS } from '@/src/shared/metrics';
-import type { MetricKey, UserCategory } from '@/src/shared/types';
+import type { AccessibilityPrefs, MetricKey, UserCategory } from '@/src/shared/types';
 
 export default function OnboardingScreen() {
-  const { profile, update } = useProfile();
+  const { profile, updateProfile, loading } = useProfile();
+  const { confirm } = useFeedback();
+  const { c } = useTheme();
+
   const [step, setStep] = useState(0);
-  const [name, setName] = useState('');
-  const [cats, setCats] = useState<UserCategory[]>([]);
-  const [metrics, setMetrics] = useState<MetricKey[]>([]);
-  if (!profile) return <Screen title="Welcome"><AppText>Loading…</AppText></Screen>;
-  const a = profile.a11y;
+  const [name, setName] = useState(profile?.displayName ?? '');
+  const [cats, setCats] = useState<UserCategory[]>(profile?.categories ?? []);
+  const [metrics, setMetrics] = useState<MetricKey[]>(profile?.trackedMetrics ?? []);
+  const [a11y, setA11y] = useState<AccessibilityPrefs>(
+    profile?.a11y ?? {
+      highContrast: false,
+      lowSensory: false,
+      fontScale: 1,
+      dyslexiaFont: false,
+      reduceMotion: false,
+      autoReadAloud: false,
+      simpleLanguage: false,
+      haptics: true,
+      sounds: true,
+    }
+  );
+  const [consent, setConsent] = useState<{ healthData: boolean; aiProcessing: boolean }>(
+    profile?.consent ?? { healthData: false, aiProcessing: false }
+  );
+  const [busy, setBusy] = useState(false);
 
-  const toggleCat = (c: UserCategory) => {
-    const next = cats.includes(c) ? cats.filter((x) => x !== c) : [...cats, c];
-    setCats(next);
-    setMetrics(Array.from(new Set(next.flatMap((x) => CATEGORY_DEFAULTS[x].metrics))).slice(0, 3)); // sensible default
-  };
-  const toggleMetric = (m: MetricKey) =>
-    setMetrics(metrics.includes(m) ? metrics.filter((x) => x !== m) : metrics.length >= 3 ? metrics : [...metrics, m]);
-
-  async function finish() {
-    await update({ displayName: name, categories: cats, trackedMetrics: metrics, onboarded: true });
-    router.replace('/');
+  if (loading || !profile) {
+    return (
+      <Screen title="Welcome to VibeCheck" speakText="Loading your profile.">
+        <AppText>Loading profile�</AppText>
+      </Screen>
+    );
   }
 
-  const steps = [
-    <Card key="consent">
-      <AppText variant="h2">Step 1 of 4: your data</AppText>
-      <AppText>VibeCheck stores your check-ins in your private space. AI uses them only to plan your day and draft messages you approve. Nothing reaches your employer unless you send it.</AppText>
-      <ChipGroup label="I agree that" selected={(['healthData', 'aiProcessing'] as const).filter((k) => profile.consent[k])}
-        options={[{ value: 'healthData', label: 'VibeCheck stores my check-ins' }, { value: 'aiProcessing', label: 'AI processes them to help me' }]}
-        onToggle={(k) => update({ consent: { ...profile.consent, [k]: !profile.consent[k], acceptedAt: new Date().toISOString() } })} />
-      <AppButton label="Next" onPress={() => setStep(1)} disabled={!profile.consent.healthData || !profile.consent.aiProcessing} />
-    </Card>,
-    <Card key="who">
-      <AppText variant="h2">Step 2 of 4: about you</AppText>
-      <TextField label="First name" value={name} onChangeText={setName} voice={false} />
-      <ChipGroup label="What affects your work days? Choose any." selected={cats}
-        options={(Object.keys(CATEGORY_DEFAULTS) as UserCategory[]).map((c) => ({ value: c, label: CATEGORY_DEFAULTS[c].label }))} onToggle={toggleCat} />
-      <AppButton label="Next" onPress={() => setStep(2)} disabled={!cats.length} />
-    </Card>,
-    <Card key="metrics">
-      <AppText variant="h2">Step 3 of 4: what to track (2 or 3)</AppText>
-      <AppText variant="muted">Fewer scales = a 10-second check-in. You can change this later in Me.</AppText>
-      <ChipGroup label={`Selected ${metrics.length} of 3`} selected={metrics}
-        options={(Object.keys(METRICS) as MetricKey[]).map((m) => ({ value: m, label: `${METRICS[m].label}: ${METRICS[m].question}` }))} onToggle={toggleMetric} />
-      <AppButton label="Next" onPress={() => setStep(3)} disabled={metrics.length < 2} />
-    </Card>,
-    <Card key="a11y">
-      <AppText variant="h2">Step 4 of 4: how VibeCheck should look and sound</AppText>
-      <ChipGroup label="Options" selected={(['lowSensory', 'highContrast', 'dyslexiaFont', 'autoReadAloud', 'simpleLanguage', 'haptics', 'sounds'] as const).filter((k) => a[k])}
-        options={[
-          { value: 'lowSensory', label: 'Low-sensory mode: dark, no motion, no alert colours' },
-          { value: 'highContrast', label: 'High contrast' }, { value: 'dyslexiaFont', label: 'Easy-read font' },
-          { value: 'autoReadAloud', label: 'Read screens aloud' }, { value: 'simpleLanguage', label: 'Simple language' },
-          { value: 'haptics', label: 'Vibrate to confirm' }, { value: 'sounds', label: 'Sound to confirm' },
-        ]}
-        onToggle={(k) => update({ a11y: { ...a, [k]: !a[k] } })} />
-      <AppButton label="Start" onPress={finish} />
-    </Card>,
+  const toggleCat = (catKey: UserCategory) => {
+    const next = cats.includes(catKey) ? cats.filter((x) => x !== catKey) : [...cats, catKey];
+    setCats(next);
+    const suggested = Array.from(new Set(next.flatMap((x) => CATEGORY_DEFAULTS[x].metrics))).slice(0, 3);
+    setMetrics(suggested);
+  };
+
+  const toggleMetric = (m: MetricKey) => {
+    setMetrics((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : prev.length >= 3 ? prev : [...prev, m]));
+  };
+
+  const updateA11yPref = (patch: Partial<AccessibilityPrefs>) => {
+    const next = { ...a11y, ...patch };
+    setA11y(next);
+    updateProfile({ a11y: next }).catch(() => {});
+  };
+
+  async function finish() {
+    setBusy(true);
+    try {
+      await updateProfile({
+        displayName: name.trim() || 'Colleague',
+        categories: cats,
+        trackedMetrics: metrics,
+        a11y,
+        consent: {
+          healthData: consent.healthData,
+          aiProcessing: consent.aiProcessing,
+          acceptedAt: new Date().toISOString(),
+        },
+        onboarded: true,
+      });
+      await confirm();
+      router.replace('/');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const speakTexts = [
+    'Step 1 of 4: Choose what affects your work days. Select one or more categories using the large buttons.',
+    `Step 2 of 4: Choose two or three metrics to track each day. Currently selected: ${metrics.length} of 3.`,
+    'Step 3 of 4: Accessibility preferences. Set your text size, high contrast or low-sensory mode, simple language, and confirmation feedback.',
+    'Step 4 of 4: Consent and name. Confirm data storage and AI processing. Nothing reaches your employer without your review.',
   ];
-  return <Screen title="Welcome to VibeCheck">{steps[step]}</Screen>;
+
+  return (
+    <Screen title="Welcome to VibeCheck" speakText={speakTexts[step]}>
+      {step === 0 && (
+        <Card>
+          <AppText variant="h2">Step 1 of 4: What affects your work?</AppText>
+          <AppText variant="muted">
+            Choose any categories that apply. We ask only your category, never a diagnosis or medical details.
+          </AppText>
+
+          <View style={{ gap: 12, marginVertical: 8 }}>
+            {(Object.keys(CATEGORY_DEFAULTS) as UserCategory[]).map((catKey) => {
+              const def = CATEGORY_DEFAULTS[catKey];
+              const isSelected = cats.includes(catKey);
+              return (
+                <Card
+                  key={catKey}
+                  style={{
+                    borderWidth: 2,
+                    borderColor: isSelected ? c.primary : c.border,
+                    gap: 8,
+                  }}
+                >
+                  <AppButton
+                    kind={isSelected ? 'primary' : 'secondary'}
+                    label={`${isSelected ? '\u2713 ' : ''}${def.label}`}
+                    hint={def.aiRole}
+                    accessibilityLabel={`${def.label}, ${isSelected ? 'selected' : 'not selected'}`}
+                    onPress={() => toggleCat(catKey)}
+                  />
+                  <AppText variant="muted">{def.aiRole}</AppText>
+                </Card>
+              );
+            })}
+          </View>
+
+          <AppButton
+            label="Continue to metrics"
+            hint="Proceed to step 2"
+            onPress={() => setStep(1)}
+            disabled={cats.length === 0}
+          />
+        </Card>
+      )}
+
+      {step === 1 && (
+        <Card>
+          <AppText variant="h2">Step 2 of 4: What to track</AppText>
+          <AppText variant="muted">
+            Choose 2 or 3 metrics. Tracking fewer scales keeps your daily check-in under 10 seconds. You can always change this later in Me.
+          </AppText>
+
+          <ChipGroup
+            label={`Selected ${metrics.length} of 3 (minimum 2)`}
+            selected={metrics}
+            options={(Object.keys(METRICS) as MetricKey[]).map((m) => ({
+              value: m,
+              label: `${METRICS[m].label}: ${METRICS[m].question}`,
+            }))}
+            onToggle={toggleMetric}
+          />
+
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                kind="secondary"
+                label="Back"
+                hint="Return to categories"
+                onPress={() => setStep(0)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Continue to preferences"
+                hint="Proceed to step 3"
+                onPress={() => setStep(2)}
+                disabled={metrics.length < 2 || metrics.length > 3}
+              />
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card>
+          <AppText variant="h2">Step 3 of 4: Accessibility preferences</AppText>
+          <AppText variant="muted">
+            Customise how VibeCheck looks and interacts. These settings apply immediately.
+          </AppText>
+
+          <ChipGroup
+            label="Text size"
+            selected={[String(a11y.fontScale)]}
+            options={[
+              { value: '1', label: '100% (Normal)' },
+              { value: '1.25', label: '125% (Large)' },
+              { value: '1.5', label: '150% (Extra large)' },
+            ]}
+            onToggle={(val) => updateA11yPref({ fontScale: Number(val) as 1 | 1.25 | 1.5 })}
+          />
+
+          <ChipGroup
+            label="Display and reading"
+            selected={
+              (['lowSensory', 'highContrast', 'dyslexiaFont', 'reduceMotion', 'autoReadAloud', 'simpleLanguage'] as const).filter(
+                (k) => a11y[k]
+              )
+            }
+            options={[
+              { value: 'lowSensory', label: 'Low-sensory mode (neutral dark, no motion, square corners)' },
+              { value: 'highContrast', label: 'High contrast' },
+              { value: 'dyslexiaFont', label: 'Easy-read dyslexia font' },
+              { value: 'reduceMotion', label: 'Reduce motion and animations' },
+              { value: 'autoReadAloud', label: 'Read screens aloud automatically' },
+              { value: 'simpleLanguage', label: 'Simple language (clear, easy-to-read text)' },
+            ]}
+            onToggle={(k) => updateA11yPref({ [k]: !a11y[k] })}
+          />
+
+          <ChipGroup
+            label="Confirmation feedback"
+            selected={(['haptics', 'sounds'] as const).filter((k) => a11y[k])}
+            options={[
+              { value: 'haptics', label: 'Vibration on save (phone)' },
+              { value: 'sounds', label: 'Sound on save (uncheck to mute)' },
+            ]}
+            onToggle={(k) => updateA11yPref({ [k]: !a11y[k] })}
+          />
+
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                kind="secondary"
+                label="Back"
+                hint="Return to metrics"
+                onPress={() => setStep(1)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Continue to consent"
+                hint="Proceed to step 4"
+                onPress={() => setStep(3)}
+              />
+            </View>
+          </View>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card>
+          <AppText variant="h2">Step 4 of 4: Your privacy & consent</AppText>
+          <TextField
+            label="Preferred first name"
+            value={name}
+            onChangeText={setName}
+            voice={false}
+            placeholder="e.g. Elena"
+          />
+
+          <AppText>
+            VibeCheck stores your check-ins in your private space. AI uses them only to plan your day and draft messages you approve. Nothing reaches your employer unless you review and send it.
+          </AppText>
+
+          <ChipGroup
+            label="Explicit consent"
+            selected={
+              (['healthData', 'aiProcessing'] as const).filter((k) => consent[k])
+            }
+            options={[
+              { value: 'healthData', label: 'I agree that VibeCheck stores my check-ins' },
+              { value: 'aiProcessing', label: 'I agree that AI processes them to help adapt my work' },
+            ]}
+            onToggle={(k) => setConsent((prev) => ({ ...prev, [k]: !prev[k] }))}
+          />
+
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                kind="secondary"
+                label="Back"
+                hint="Return to accessibility preferences"
+                onPress={() => setStep(2)}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Complete onboarding"
+                hint="Save your profile and enter VibeCheck"
+                onPress={finish}
+                disabled={!consent.healthData || !consent.aiProcessing}
+                busy={busy}
+              />
+            </View>
+          </View>
+        </Card>
+      )}
+    </Screen>
+  );
 }

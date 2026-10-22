@@ -20,6 +20,7 @@ const SUBCOLS = ['checkins', 'summaries', 'dayPlans', 'requests'];
 export default function SettingsScreen() {
   const { profile, update } = useProfile();
   const { logout } = useAuth();
+
   if (!profile) return <Screen title="Me"><AppText>Loading…</AppText></Screen>;
   const a = profile.a11y;
   const toggleA11y = (k: keyof typeof a) => update({ a11y: { ...a, [k]: !a[k] } as any });
@@ -81,6 +82,7 @@ export default function SettingsScreen() {
         <AppButton kind="secondary" label="Download my data" onPress={exportData} />
         <AppButton kind="secondary" label="Sign out" onPress={logout} />
         <AppButton kind="danger" label="Delete all my health data" hint="Deletes check-ins, summaries, plans and requests" onPress={deleteAll} />
+
       </Card>
     </Screen>
   );
