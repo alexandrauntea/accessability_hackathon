@@ -4,7 +4,7 @@
 // 3. Accessibility preferences (text size 100/125/150, low-sensory, high-contrast, simple language, haptics, sounds)
 // 4. Explicit consent to store health data + display name -> save via useProfile -> confirm() -> redirect.
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
 import { useProfile } from '@/src/shared/hooks/useProfile';
@@ -16,7 +16,7 @@ import type { AccessibilityPrefs, MetricKey, UserCategory } from '@/src/shared/t
 export default function OnboardingScreen() {
   const { profile, updateProfile, loading } = useProfile();
   const { confirm } = useFeedback();
-  const { c } = useTheme();
+  const { c, radius } = useTheme();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile?.displayName ?? '');
@@ -108,23 +108,61 @@ export default function OnboardingScreen() {
               const def = CATEGORY_DEFAULTS[catKey];
               const isSelected = cats.includes(catKey);
               return (
-                <Card
+                <Pressable
                   key={catKey}
-                  style={{
-                    borderWidth: 2,
-                    borderColor: isSelected ? c.primary : c.border,
-                    gap: 8,
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${def.label}, ${isSelected ? 'selected' : 'not selected'}`}
+                  accessibilityHint={def.aiRole}
+                  accessibilityState={{ checked: isSelected }}
+                  onPress={() => toggleCat(catKey)}
+                  onKeyDown={(e: any) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault?.();
+                      toggleCat(catKey);
+                    }
                   }}
+                  style={({ focused }: any) => ({
+                    cursor: 'pointer',
+                    outlineStyle: focused ? 'solid' : undefined,
+                    outlineWidth: focused ? 3 : 0,
+                    outlineColor: c.focus,
+                    outlineOffset: 2,
+                    borderRadius: radius.md,
+                  })}
                 >
-                  <AppButton
-                    kind={isSelected ? 'primary' : 'secondary'}
-                    label={`${isSelected ? '\u2713 ' : ''}${def.label}`}
-                    hint={def.aiRole}
-                    accessibilityLabel={`${def.label}, ${isSelected ? 'selected' : 'not selected'}`}
-                    onPress={() => toggleCat(catKey)}
-                  />
-                  <AppText variant="muted">{def.aiRole}</AppText>
-                </Card>
+                  <Card
+                    style={{
+                      borderWidth: 2,
+                      borderColor: isSelected ? c.primary : c.border,
+                      gap: 8,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <AppText variant="h2" style={{ color: isSelected ? c.primary : c.text, flex: 1 }}>
+                        {isSelected ? '✓ ' : ''}{def.label}
+                      </AppText>
+                      <View
+                        style={{
+                          minHeight: 36,
+                          minWidth: 84,
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: radius.sm,
+                          backgroundColor: isSelected ? c.primary : 'transparent',
+                          borderWidth: 1,
+                          borderColor: isSelected ? c.primary : c.border,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <AppText style={{ color: isSelected ? c.onPrimary : c.text, fontWeight: '700' }}>
+                          {isSelected ? 'Selected' : 'Select'}
+                        </AppText>
+                      </View>
+                    </View>
+                    <AppText variant="muted">{def.aiRole}</AppText>
+                  </Card>
+                </Pressable>
               );
             })}
           </View>
