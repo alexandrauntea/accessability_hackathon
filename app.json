@@ -6,8 +6,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "web": { "bundler": "metro", "output": "single" },
-    "plugins": ["expo-router", "expo-font", "expo-audio"],
-    "experiments": { "typedRoutes": false }
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-audio",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
   }
 }

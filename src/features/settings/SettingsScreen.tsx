@@ -16,7 +16,7 @@ const CONDITIONS: { value: Condition; label: string }[] = [
   { value: 'dyslexia', label: 'Dyslexia' }, { value: 'anxiety', label: 'Anxiety' }, { value: 'depression', label: 'Depression' }, { value: 'burnout', label: 'Burnout' },
 ];
 const SUBCOLS = ['checkins', 'summaries', 'dayPlans', 'requests'];
-
+const { logout } = useAuth();
 export default function SettingsScreen() {
   const { profile, update } = useProfile();
   if (!profile) return <Screen title="Me"><AppText>Loading…</AppText></Screen>;
@@ -78,6 +78,7 @@ export default function SettingsScreen() {
           options={[{ value: 'none', label: 'Only the adjustment I need' }, { value: 'general', label: 'That I have a health condition' }, { value: 'specific', label: 'My specific condition' }]}
           onToggle={(d) => update({ disclosure: d })} />
         <AppButton kind="secondary" label="Download my data" onPress={exportData} />
+        <AppButton kind="secondary" label="Sign out" onPress={logout} />
         <AppButton kind="danger" label="Delete all my health data" hint="Deletes check-ins, summaries, plans and requests" onPress={deleteAll} />
       </Card>
     </Screen>

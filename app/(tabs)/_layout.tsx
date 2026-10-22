@@ -4,6 +4,7 @@ import { Redirect, Tabs } from 'expo-router';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/src/shared/theme/ThemeProvider';
+import { useAuth } from '@/src/shared/hooks/useAuth';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 const icon = (name: IconName) => ({ color, size }: { color: string; size: number }) => <Ionicons name={name} color={color} size={size} />;
@@ -11,6 +12,9 @@ const icon = (name: IconName) => ({ color, size }: { color: string; size: number
 export default function TabsLayout() {
   const { c, font, motion } = useTheme();
   const { profile } = useProfile();
+  const { user, loading } = useAuth();
+if (loading) return null;
+if (!user) return <Redirect href="/login" />;
   if (profile && !profile.onboarded) return <Redirect href="/onboarding" />;
   return (
     <Tabs screenOptions={{

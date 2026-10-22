@@ -1,1 +1,8 @@
-{ "projects": { "default": "REPLACE-WITH-YOUR-PROJECT-ID" } }
+{
+  "projects": {
+    "default": "vibecheck-8483c",
+    "vibecheck": "vibecheck-8483c"
+  },
+  "targets": {},
+  "etags": {}
+}

@@ -21,6 +21,7 @@ function AppStack() {
       <Stack.Screen name="request/[id]" options={{ headerShown: true, title: 'Support request' }} />
       <Stack.Screen name="speak" options={{ headerShown: true, title: 'Speak for me' }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
     </Stack>
   );
 }
