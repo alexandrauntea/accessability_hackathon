@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "VibeCheck",
+    "slug": "vibecheck",
+    "scheme": "vibecheck",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "web": { "bundler": "metro", "output": "single" },
+    "plugins": ["expo-router", "expo-font", "expo-audio"],
+    "experiments": { "typedRoutes": false }
+  }
+}

@@ -1,0 +1,17 @@
+# Replace with GitHub usernames
+/src/features/checkin/   @ANDREEA_GH
+/src/features/insights/  @ANDREEA_GH
+/src/shared/ui/          @ANDREEA_GH
+/src/shared/theme/       @ANDREEA_GH
+/functions/src/checkin/  @ANDREEA_GH
+/src/features/day/       @ALEXANDRA_GH
+/src/integrations/       @ALEXANDRA_GH
+/functions/src/day/      @ALEXANDRA_GH
+/functions/src/lib/ai.ts @ALEXANDRA_GH
+/src/features/advocate/  @ALINA_GH
+/src/features/settings/  @ALINA_GH
+/functions/src/advocate/ @ALINA_GH
+/functions/src/lib/safety.ts @ALINA_GH
+/firestore.rules         @ALINA_GH
+/src/shared/types.ts     @ANDREEA_GH @ALEXANDRA_GH @ALINA_GH
+/src/shared/api.ts       @ANDREEA_GH @ALEXANDRA_GH @ALINA_GH

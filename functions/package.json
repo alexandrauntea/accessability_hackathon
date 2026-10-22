@@ -1,0 +1,25 @@
+{
+  "name": "vibecheck-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "sync-types": "node -e \"require('fs').copyFileSync('../src/shared/types.ts','src/lib/types.ts')\"",
+    "prebuild": "npm run sync-types",
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "@google/genai": "^1.20.0",
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^6.4.0",
+    "nodemailer": "^7.0.6",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/nodemailer": "^7.0.1",
+    "typescript": "~5.9.2"
+  }
+}
