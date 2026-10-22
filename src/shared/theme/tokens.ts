@@ -1,4 +1,4 @@
-// Owner: Andreea. Contrast checked: normal >= 4.5:1 (AA), highContrast >= 7:1 (AAA).
+﻿// Owner: Andreea. Contrast checked: normal >= 4.5:1 (AA), highContrast >= 7:1 (AAA).
 export interface Palette {
   bg: string; surface: string; text: string; textMuted: string; primary: string; onPrimary: string;
   border: string; focus: string; good: string; warn: string; danger: string; aiTint: string;
@@ -7,7 +7,7 @@ export interface Palette {
 export const palettes: Record<'light' | 'dark' | 'highContrast' | 'lowSensory', Palette> = {
   light: {
     bg: '#FAFAF7', surface: '#FFFFFF', text: '#1A1A1A', textMuted: '#4A4A4A',
-    primary: '#2B4FB8', onPrimary: '#FFFFFF', border: '#8A8A8A', focus: '#B35C00',
+    primary: '#2B4FB8', onPrimary: '#FFFFFF', border: '#767676', focus: '#B35C00',
     good: '#1E6B34', warn: '#8A5300', danger: '#B3261E', aiTint: '#EEF1FB',
   },
   dark: {
@@ -24,7 +24,7 @@ export const palettes: Record<'light' | 'dark' | 'highContrast' | 'lowSensory', 
   // contrast still >= 7:1 for text. Used with square corners and no animation.
   lowSensory: {
     bg: '#0B0B0B', surface: '#111111', text: '#D9D9D9', textMuted: '#B0B0B0',
-    primary: '#C8CDD3', onPrimary: '#0B0B0B', border: '#6E6E6E', focus: '#E0E0E0',
+    primary: '#C8CDD3', onPrimary: '#0B0B0B', border: '#888888', focus: '#E0E0E0',
     good: '#C8CDD3', warn: '#C8CDD3', danger: '#C8CDD3', aiTint: '#111111',
   },
 };
