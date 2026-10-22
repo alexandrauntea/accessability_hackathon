@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SHARED CONTRACT — frozen after hour 2.
  * Changes: announce in team chat, separate small PR, one reviewer.
  * The same shapes are mirrored in functions/src/lib/types.ts (keep them in sync).
@@ -179,7 +179,11 @@ export type AdvocateReply =
   | { type: 'safety'; message: string; resources: string[] };
 
 // ---------- AAC: speak for me in meetings ----------
+export type ContributionMode = 'clarify' | 'calm' | 'status_update' | 'polish';
+
 export interface MeetingContribution {
+  text: string; // clear, adult phrased text, <= 80 words
+  why: string; // explanation for the phrasing
   spoken: string; // clear, professional, <= 3 sentences, for TTS
   chat: string; // same content formatted for the meeting chat
 }

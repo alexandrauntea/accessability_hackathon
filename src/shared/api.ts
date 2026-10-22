@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SHARED CONTRACT — typed wrappers for every Cloud Function.
  * Pre-wired for all three slices so nobody has to edit this file mid-hackathon.
  */
@@ -26,7 +26,13 @@ export const planDay = call<
 export const breakdownTask = call<{ task: WorkTask; capacity: Checkin['capacity'] }, { firstStep: string; steps: string[] }>('breakdownTask');
 export const jiraIssues = call<Record<string, never>, WorkTask[]>('jiraIssues');
 export const composeContribution = call<
-  { draft: string; meetingTitle?: string; checkin?: Pick<Checkin, 'capacityScore'> | null; tasks?: Pick<WorkTask, 'id' | 'title' | 'status'>[]; mode: 'polish' | 'status_update' },
+  {
+    draft: string;
+    meetingTitle?: string;
+    checkin?: Pick<Checkin, 'capacityScore'> | null;
+    tasks?: Pick<WorkTask, 'id' | 'title' | 'status'>[];
+    mode: 'clarify' | 'calm' | 'status_update' | 'polish';
+  },
   MeetingContribution
 >('composeContribution');
 
