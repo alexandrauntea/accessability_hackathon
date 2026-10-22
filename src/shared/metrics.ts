@@ -55,9 +55,9 @@ export const CAPACITY_ANCHORS = { 1: 'Only short asynchronous tasks', 5: 'Normal
 /** Convert any metric to "goodness" 1..10, average, round. Deterministic and explainable. */
 export function deriveCapacity(metrics: Checkin['metrics']): { capacityScore: number; capacity: Capacity } {
   const vals = (Object.keys(metrics) as MetricKey[])
-    .filter((k) => typeof metrics[k] === 'number')
+    .filter((k) => k in METRICS && typeof metrics[k] === 'number')
     .map((k) => (METRICS[k].direction === 'higher_is_better' ? metrics[k]! : 11 - metrics[k]!));
-  const capacityScore = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 5;
+  const capacityScore = vals.length ? Math.max(1, Math.min(10, Math.round(vals.reduce((a, b) => a + b, 0) / vals.length))) : 5;
   const capacity: Capacity = capacityScore <= 3 ? 'low' : capacityScore >= 7 ? 'high' : 'medium';
   return { capacityScore, capacity };
 }
