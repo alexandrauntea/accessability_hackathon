@@ -196,3 +196,12 @@ export interface MeetingContribution {
   spoken: string; // clear, professional, <= 3 sentences, for TTS
   chat: string; // same content formatted for the meeting chat
 }
+
+export interface MeetingPrep {
+  purpose: string;
+  likelyQuestions: string[];
+  myPoints: string[];
+  suggestedPhrases: string[];
+  whatToExpect: { duration: string; speakingExpectation: string; cameraRequired: boolean };
+  why: string;
+}

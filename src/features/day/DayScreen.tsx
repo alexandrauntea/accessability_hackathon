@@ -3,8 +3,9 @@ import React, { useCallback, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AiBadge, AppButton, AppText, Card, Screen } from '@/src/shared/ui';
-import { planDay, breakdownTask, composeContribution } from '@/src/shared/api';
+import { planDay, breakdownTask, composeContribution, prepareMeeting } from '@/src/shared/api';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
 import { todayISO, hhmm } from '@/src/shared/dates';
@@ -15,11 +16,13 @@ import { config } from '@/src/shared/config';
 import { useGoogleCalendarAuth } from './useGoogleCalendarAuth';
 import { saveDayPlan, getDayPlan } from './dayRepo';
 import { analyzeWeekPattern, WeekPatternAnalysis } from './weekPattern';
-import type { CalendarEvent, Checkin, DayPlan, WorkTask } from '@/src/shared/types';
+import type { CalendarEvent, Checkin, DayPlan, MeetingPrep, WorkTask } from '@/src/shared/types';
 
 const ACTION_LABEL: Record<string, string> = {
   keep: 'Keep', move: 'Move', shorten: 'Shorten', make_async: 'Make async', split: 'Split', drop_today: 'Not today', add_break: 'Break', focus_block: 'Focus block',
 };
+
+const CUSTOM_STORAGE_KEY = 'vibecheck_custom_phrases';
 
 export default function DayScreen() {
   const { profile } = useProfile();
@@ -35,6 +38,11 @@ export default function DayScreen() {
   const [patternAnalysis, setPatternAnalysis] = useState<WeekPatternAnalysis | null>(null);
   const [draftingMessage, setDraftingMessage] = useState(false);
   const [draftedMessage, setDraftedMessage] = useState<string | null>(null);
+
+  // Meeting prep states
+  const [preparingId, setPreparingId] = useState<string | null>(null);
+  const [prepData, setPrepData] = useState<{ meeting: CalendarEvent; data: MeetingPrep } | null>(null);
+  const [savedPhrasesSuccess, setSavedPhrasesSuccess] = useState(false);
 
   const load = useCallback(async () => {
     setMockPersona(profile?.demoPersona); setMockTaskPersona(profile?.demoPersona);
@@ -119,6 +127,43 @@ export default function DayScreen() {
       setDraftedMessage(patternAnalysis.suggestion.draftMessage);
     } finally {
       setDraftingMessage(false);
+    }
+  }
+
+  async function handlePrepareMeeting(e: CalendarEvent) {
+    setPreparingId(e.id);
+    try {
+      const startMs = Date.parse(e.start);
+      const endMs = Date.parse(e.end);
+      const durationMin = !isNaN(startMs) && !isNaN(endMs) ? Math.round((endMs - startMs) / 60000) : 30;
+
+      const res = await prepareMeeting({
+        meetingTitle: e.title,
+        durationMin,
+        attendeesCount: e.attendees?.length ?? 3,
+        tasks: tasks.map(({ id, title }) => ({ id, title })),
+      });
+      setPrepData({ meeting: e, data: res });
+      setSavedPhrasesSuccess(false);
+      await feedback.confirm();
+    } catch (err) {
+      console.error('Failed to prepare meeting:', err);
+    } finally {
+      setPreparingId(null);
+    }
+  }
+
+  async function addSuggestedPhrasesToAAC() {
+    if (!prepData?.data.suggestedPhrases?.length) return;
+    try {
+      const existingStr = await AsyncStorage.getItem(CUSTOM_STORAGE_KEY);
+      const existing: string[] = existingStr ? JSON.parse(existingStr) : [];
+      const updated = Array.from(new Set([...existing, ...prepData.data.suggestedPhrases]));
+      await AsyncStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(updated));
+      setSavedPhrasesSuccess(true);
+      await feedback.confirm();
+    } catch (err) {
+      console.warn('Could not save phrases to storage:', err);
     }
   }
 
@@ -282,6 +327,84 @@ export default function DayScreen() {
         )}
       </Card>
 
+      {/* Meeting Briefing Card */}
+      {prepData ? (
+        <Card ai>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <AppText variant="h2">Briefing: {prepData.meeting.title}</AppText>
+            <AppButton
+              kind="secondary"
+              label="Close"
+              accessibilityLabel="Close meeting briefing"
+              onPress={() => setPrepData(null)}
+            />
+          </View>
+          <AiBadge why={prepData.data.why} />
+
+          <View style={{ gap: 8, marginTop: 8 }}>
+            <View style={{ gap: 4 }}>
+              <AppText style={{ fontWeight: '700' }}>Purpose:</AppText>
+              <AppText>{prepData.data.purpose}</AppText>
+            </View>
+
+            <View style={{ gap: 4, padding: 8, backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: 6 }}>
+              <AppText style={{ fontWeight: '700' }}>What to expect:</AppText>
+              <AppText>• Duration: {prepData.data.whatToExpect.duration}</AppText>
+              <AppText>• Turn: {prepData.data.whatToExpect.speakingExpectation}</AppText>
+              <AppText>• Camera: {prepData.data.whatToExpect.cameraRequired ? 'Camera expected' : 'Camera optional'}</AppText>
+            </View>
+
+            <View style={{ gap: 4 }}>
+              <AppText style={{ fontWeight: '700' }}>Likely questions:</AppText>
+              {prepData.data.likelyQuestions.map((q, idx) => (
+                <AppText key={idx} variant="muted">{idx + 1}. {q}</AppText>
+              ))}
+            </View>
+
+            <View style={{ gap: 4 }}>
+              <AppText style={{ fontWeight: '700' }}>Your points:</AppText>
+              {prepData.data.myPoints.map((pt, idx) => (
+                <AppText key={idx} variant="muted">• {pt}</AppText>
+              ))}
+            </View>
+
+            <View style={{ gap: 4 }}>
+              <AppText style={{ fontWeight: '700' }}>Suggested AAC phrases:</AppText>
+              {prepData.data.suggestedPhrases.map((phrase, idx) => (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 }}>
+                  <AppText style={{ flex: 1, fontStyle: 'italic' }}>“{phrase}”</AppText>
+                  <AppButton
+                    kind="secondary"
+                    label="Copy"
+                    accessibilityLabel={`Copy phrase: ${phrase}`}
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(phrase);
+                      await feedback.confirm();
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+
+            <View style={{ gap: 8, marginTop: 8 }}>
+              <AppButton
+                kind="secondary"
+                label={savedPhrasesSuccess ? 'Phrases saved to Speak for me!' : 'Add phrases to Speak for me'}
+                hint="Saves suggested phrases to your personal quick phrases"
+                accessibilityLabel="Save suggested phrases to personal quick phrases in Speak for me"
+                onPress={addSuggestedPhrasesToAAC}
+                disabled={savedPhrasesSuccess}
+              />
+              <AppButton
+                label="Open in Speak for me"
+                accessibilityLabel="Open this meeting in Speak for me"
+                onPress={() => router.push({ pathname: '/speak', params: { meeting: prepData.meeting.title } })}
+              />
+            </View>
+          </View>
+        </Card>
+      ) : null}
+
       {/* Google Calendar status card (Web only) */}
       {Platform.OS === 'web' ? (
         <Card>
@@ -325,12 +448,26 @@ export default function DayScreen() {
         {events.map((e) => (
           <View key={e.id} style={{ gap: 4, paddingVertical: 4 }}>
             <AppText>{hhmm(e.start)}–{hhmm(e.end)} · {e.title}{e.movable ? '' : ' (fixed)'}</AppText>
-            <AppButton
-              kind="secondary"
-              label="Speak for me here"
-              accessibilityLabel={`Prepare a contribution for ${e.title}`}
-              onPress={() => router.push({ pathname: '/speak', params: { meeting: e.title } })}
-            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  kind="secondary"
+                  label={preparingId === e.id ? 'Preparing...' : 'Prepare'}
+                  hint="AI briefing with expected questions, points and ready phrases"
+                  accessibilityLabel={`Prepare briefing for ${e.title}`}
+                  onPress={() => handlePrepareMeeting(e)}
+                  disabled={!!preparingId}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <AppButton
+                  kind="secondary"
+                  label="Speak for me"
+                  accessibilityLabel={`Speak for me in ${e.title}`}
+                  onPress={() => router.push({ pathname: '/speak', params: { meeting: e.title } })}
+                />
+              </View>
+            </View>
           </View>
         ))}
       </Card>

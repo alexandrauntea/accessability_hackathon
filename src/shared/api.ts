@@ -5,7 +5,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
 import type {
-  AdvocateReply, CalendarEvent, Checkin, DayPlan, MeetingContribution, MetricKey, ParsedCheckin, RequestCategory,
+  AdvocateReply, CalendarEvent, Checkin, DayPlan, MeetingContribution, MeetingPrep, MetricKey, ParsedCheckin, RequestCategory,
   StateSummary, Stats, UserCategory, UserProfile, WeekdayPattern, WorkTask,
 } from './types';
 
@@ -35,6 +35,15 @@ export const composeContribution = call<
   },
   MeetingContribution
 >('composeContribution');
+export const prepareMeeting = call<
+  {
+    meetingTitle: string;
+    durationMin?: number;
+    attendeesCount?: number;
+    tasks?: Pick<WorkTask, 'id' | 'title'>[];
+  },
+  MeetingPrep
+>('prepareMeeting');
 
 // Alina
 export const advocateChat = call<{ requestId: string; message: string; category?: RequestCategory }, AdvocateReply>('advocateChat');
