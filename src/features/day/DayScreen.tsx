@@ -127,7 +127,6 @@ export default function DayScreen() {
       <View style={{ gap: 8 }}>
         <AppButton label="Adapt my day" hint="AI re-plans meetings and tasks around today's capacity" onPress={() => adapt(false)} busy={busy} />
         <AppButton kind="secondary" label="It's a hard day" hint="Fewer meetings, small clear tasks, messages drafted for you" onPress={() => adapt(true)} />
-        {showGoogle ? <AppButton kind="secondary" label="Connect Google Calendar" onPress={google.connect} /> : null}
       </View>
       {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
 
@@ -212,6 +211,44 @@ export default function DayScreen() {
           <AppText variant="muted">Your capacity is evenly distributed this week with no low-energy bottlenecks.</AppText>
         )}
       </Card>
+
+      {/* Google Calendar status card (Web only) */}
+      {Platform.OS === 'web' ? (
+        <Card>
+          <AppText variant="h2">Google Calendar</AppText>
+          {google.isConnected ? (
+            <View style={{ gap: 8 }}>
+              <AppText style={{ color: '#0d7a46', fontWeight: '600' }}>Connected · read-only</AppText>
+              <AppText variant="muted">Events are loaded directly from your Google Calendar during this session.</AppText>
+              <AppButton
+                kind="secondary"
+                label="Disconnect calendar"
+                accessibilityLabel="Disconnect Google Calendar and return to sample calendar"
+                onPress={google.disconnect}
+              />
+            </View>
+          ) : (
+            <View style={{ gap: 8 }}>
+              <AppText variant="muted">
+                Using sample calendar because:{' '}
+                {!google.hasClientId
+                  ? 'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID not configured in .env'
+                  : config.mockCalendar
+                  ? 'Sample calendar flag is active (EXPO_PUBLIC_MOCK_CALENDAR=true)'
+                  : 'Google Calendar not connected'}
+              </AppText>
+              {google.ready && !config.mockCalendar ? (
+                <AppButton
+                  kind="secondary"
+                  label="Connect Google Calendar"
+                  accessibilityLabel="Connect your Google Calendar read-only"
+                  onPress={google.connect}
+                />
+              ) : null}
+            </View>
+          )}
+        </Card>
+      ) : null}
 
       <Card>
         <AppText variant="h2">Calendar ({getCalendar().name})</AppText>
