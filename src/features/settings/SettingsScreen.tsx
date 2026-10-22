@@ -7,6 +7,7 @@ import { useProfile } from '@/src/shared/hooks/useProfile';
 import { db, auth } from '@/src/shared/firebase';
 import { METRICS } from '@/src/shared/metrics';
 import type { Condition, DisclosureLevel, MetricKey } from '@/src/shared/types';
+import { useAuth } from '@/src/shared/hooks/useAuth';
 
 const CONDITIONS: { value: Condition; label: string }[] = [
   { value: 'endometriosis', label: 'Endometriosis' }, { value: 'fibromyalgia', label: 'Fibromyalgia' },
@@ -16,9 +17,10 @@ const CONDITIONS: { value: Condition; label: string }[] = [
   { value: 'dyslexia', label: 'Dyslexia' }, { value: 'anxiety', label: 'Anxiety' }, { value: 'depression', label: 'Depression' }, { value: 'burnout', label: 'Burnout' },
 ];
 const SUBCOLS = ['checkins', 'summaries', 'dayPlans', 'requests'];
-const { logout } = useAuth();
 export default function SettingsScreen() {
   const { profile, update } = useProfile();
+  const { logout } = useAuth();
+
   if (!profile) return <Screen title="Me"><AppText>Loading…</AppText></Screen>;
   const a = profile.a11y;
   const toggleA11y = (k: keyof typeof a) => update({ a11y: { ...a, [k]: !a[k] } as any });
@@ -80,6 +82,7 @@ export default function SettingsScreen() {
         <AppButton kind="secondary" label="Download my data" onPress={exportData} />
         <AppButton kind="secondary" label="Sign out" onPress={logout} />
         <AppButton kind="danger" label="Delete all my health data" hint="Deletes check-ins, summaries, plans and requests" onPress={deleteAll} />
+
       </Card>
     </Screen>
   );
