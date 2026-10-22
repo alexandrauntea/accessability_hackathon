@@ -1,6 +1,6 @@
 ﻿// Owner: Alina. Support Screen:
 // "What do you need at work?" (text or voice via useVoiceInput)
-// + category-specific chips (async meetings, written instructions, flexible hours, quiet space, remote day)
+// + category-specific chips (async meetings, written instructions, flexible hours, quiet space, remote day, redistribute tasks)
 // + 3 disclosure buttons -> "Draft my request" -> editable draft
 // -> preview exactly what HR will see -> checkbox "I reviewed this and want to send it" -> send -> useFeedback().confirm()
 import React, { useEffect, useState } from 'react';
@@ -11,10 +11,13 @@ import { advocateChat, decodeMessage, sendRequest } from '@/src/shared/api';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
 import { useTheme } from '@/src/shared/theme/ThemeProvider';
+import { listCheckins } from '@/src/features/checkin/checkinRepo';
+import { computeStats, overloadSignal } from '@/src/features/insights/stats';
 import { createRequest, saveDraftEdits, watchRequests } from './requestRepo';
 import type { AccommodationRequest, AdvocateReply, DisclosureLevel, RequestCategory } from '@/src/shared/types';
 
 const COMMON_ADJUSTMENTS = [
+  { value: 'redistribute tasks', label: 'Redistribute tasks / workload' },
   { value: 'async meetings', label: 'Async meetings' },
   { value: 'written instructions', label: 'Written instructions' },
   { value: 'flexible hours', label: 'Flexible hours' },
@@ -48,6 +51,9 @@ export default function SupportScreen() {
   const [sending, setSending] = useState(false);
   const [sentMessage, setSentMessage] = useState<string | null>(null);
 
+  // Overload early-warning signal
+  const [overloadWarning, setOverloadWarning] = useState<string | null>(null);
+
   // Decode message state
   const [decodeMsg, setDecodeMsg] = useState('');
   const [decoded, setDecoded] = useState<Awaited<ReturnType<typeof decodeMessage>> | null>(null);
@@ -62,6 +68,24 @@ export default function SupportScreen() {
       setDisclosure(profile.disclosure);
     }
   }, [profile?.disclosure]);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    listCheckins(14)
+      .then((cs) => {
+        if (!active || !cs || cs.length === 0) return;
+        const stats = computeStats(cs, profile.trackedMetrics ?? []);
+        const sig = overloadSignal(stats);
+        if (sig && active) {
+          setOverloadWarning(sig);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [profile]);
 
   const toEmails = [
     ...(profile?.managerEmail ? [profile.managerEmail] : []),
@@ -151,6 +175,30 @@ export default function SupportScreen() {
       title="Ask for support"
       speakText="What do you need at work? Choose adjustments, set disclosure, and draft your accommodation request. Nothing is sent without your approval."
     >
+      {overloadWarning && (
+        <Card style={{ borderColor: c.primary, borderWidth: 2, gap: 8 }}>
+          <AppText variant="h2" accessibilityRole="alert">
+            ⚡ Overload early-warning detected
+          </AppText>
+          <AppText>{overloadWarning}</AppText>
+          <AppButton
+            kind="secondary"
+            label="Pre-fill workload redistribution request"
+            hint="Add redistribute tasks and explain pacing"
+            onPress={() => {
+              if (!selectedChips.includes('redistribute tasks')) {
+                setSelectedChips((prev) => [...prev, 'redistribute tasks']);
+              }
+              if (!needText) {
+                setNeedText(
+                  'I have worked late several days recently and my capacity is reduced. I would like to request temporarily redistributing non-urgent tasks to maintain sustainable pacing.'
+                );
+              }
+            }}
+          />
+        </Card>
+      )}
+
       <Card>
         <AppText variant="h2">What do you need at work?</AppText>
         <AppText variant="muted">
@@ -161,7 +209,7 @@ export default function SupportScreen() {
           label="Your request details"
           value={needText}
           onChangeText={setNeedText}
-          placeholder="e.g. My symptoms are flaring up and I need to focus on async tasks today..."
+          placeholder="e.g. I need to focus on async tasks and redistribute upcoming deadlines..."
           multiline
           voice={true}
         />
