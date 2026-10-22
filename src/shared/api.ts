@@ -6,7 +6,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
 import type {
   AdvocateReply, CalendarEvent, Checkin, DayPlan, MeetingContribution, MetricKey, ParsedCheckin, RequestCategory,
-  StateSummary, Stats, UserCategory, UserProfile, WorkTask,
+  StateSummary, Stats, UserCategory, UserProfile, WeekdayPattern, WorkTask,
 } from './types';
 
 function call<Req, Res>(name: string) {
@@ -20,7 +20,7 @@ export const summarizeState = call<{ date: string; stats: Stats; recent: Checkin
 
 // Alexandra
 export const planDay = call<
-  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean },
+  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean; weekdayPattern?: WeekdayPattern },
   DayPlan
 >('planDay');
 export const breakdownTask = call<{ task: WorkTask; capacity: Checkin['capacity'] }, { firstStep: string; steps: string[] }>('breakdownTask');

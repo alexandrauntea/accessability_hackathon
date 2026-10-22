@@ -4,7 +4,7 @@ import { logger } from 'firebase-functions';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY, MODEL } from '../lib/ai';
 import { requireAuth, REGION } from '../lib/auth';
-import type { CalendarEvent, Checkin, DayPlan, UserCategory, WorkTask } from '../lib/types';
+import type { CalendarEvent, Checkin, DayPlan, UserCategory, WorkTask, WeekdayPattern } from '../lib/types';
 
 const Item = z.object({
   id: z.string(),
@@ -67,7 +67,7 @@ Strict constraints:
 
 export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, async (req) => {
   requireAuth(req);
-  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false } = (req.data ?? {}) as {
+  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false, weekdayPattern } = (req.data ?? {}) as {
     date: string;
     checkin: Checkin | null;
     categories: UserCategory[];
@@ -75,6 +75,7 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
     tasks: WorkTask[];
     workHours: { start: string; end: string };
     hardDay: boolean;
+    weekdayPattern?: WeekdayPattern;
   };
 
   const capacityScore = hardDay
@@ -86,7 +87,8 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
   const prompt = `Date: ${date}. Work hours: ${workHours.start}-${workHours.end}. Mode: ${mode}. Capacity score: ${capacityScore}/10 (${capacity}).
 Categories: ${categories.join(', ') || 'none'}.
 Check-in: ${checkin ? JSON.stringify({ capacityScore: checkin.capacityScore, metrics: checkin.metrics, workedLateYesterday: checkin.workedLateYesterday, symptoms: checkin.symptoms }) : 'none (assume capacity 5)'}
-Events: ${JSON.stringify(events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, movable: e.movable, attendees: e.attendees })))}
+${weekdayPattern?.todayIsUsuallyLow ? `Weekday pattern: Today is historically a low-energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall} overall). Avoid long meetings in first 2 hours and schedule a morning buffer.
+` : ''}Events: ${JSON.stringify(events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, movable: e.movable, attendees: e.attendees })))}
 Tasks: ${JSON.stringify(tasks.filter((t) => t.status !== 'done').map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, estimateMin: t.estimateMin, daysInStatus: t.daysInStatus })))}
 Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"reduced", "items": [{ "id", "kind", "refId"?, "title", "start"? "HH:mm", "end"?, "action", "reason", "firstStep"? }] in time order, "suggestedMessages"?: [{ "to", "channel": "email"|"slack", "text" }] }`;
 
@@ -296,6 +298,42 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
         to: 'team-updates',
         channel: 'slack',
         text: 'Hi team, working with reduced capacity today on top priority items. For anything urgent, please ping my manager.',
+      });
+    }
+  }
+
+  // 5. Weekday pattern rule: if today is usually a low day, avoid long early meetings and add morning buffer
+  if (weekdayPattern?.todayIsUsuallyLow) {
+    const startHour = parseInt(workHours.start.split(':')[0], 10) || 9;
+    const earlyCutoffHour = startHour + 2;
+
+    items = items.map((item) => {
+      if (item.kind === 'event') {
+        const itemHour = item.start ? parseInt(item.start.split(':')[0], 10) : 12;
+        if (itemHour < earlyCutoffHour) {
+          const ev = item.refId ? knownEvents.get(item.refId) : undefined;
+          if (ev?.movable) {
+            return {
+              ...item,
+              action: 'move',
+              reason: `Today is historically a low-energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall}); early movable meeting shifted to avoid early cognitive fatigue.`,
+            };
+          }
+        }
+      }
+      return item;
+    });
+
+    const hasMorningBuffer = items.some((i) => i.kind === 'break' && (i.title.toLowerCase().includes('buffer') || i.title.toLowerCase().includes('ramp-up')));
+    if (!hasMorningBuffer) {
+      items.unshift({
+        id: `buffer-${Date.now()}`,
+        kind: 'break',
+        title: 'Morning buffer & gentle ramp-up',
+        start: workHours.start,
+        end: `${String(startHour).padStart(2, '0')}:30`,
+        action: 'add_break',
+        reason: `Scheduled morning buffer because today is historically a lower energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall}).`,
       });
     }
   }

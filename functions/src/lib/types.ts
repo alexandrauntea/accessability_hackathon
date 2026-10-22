@@ -99,6 +99,14 @@ export interface Stats {
   sleepCapacityCorrelation: number | null; // Pearson r
 }
 
+// ---------- Weekday pattern (Day planning) ----------
+export interface WeekdayPattern {
+  todayIsUsuallyLow: boolean;
+  avgToday: number;
+  avgOverall: number;
+  lowestWeekdayLabel?: string;
+}
+
 // ---------- Day planning ----------
 export interface CalendarEvent {
   id: string;
