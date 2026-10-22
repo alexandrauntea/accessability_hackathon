@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SHARED CONTRACT — frozen after hour 2.
  * Changes: announce in team chat, separate small PR, one reviewer.
  * The same shapes are mirrored in functions/src/lib/types.ts (keep them in sync).
@@ -99,6 +99,14 @@ export interface Stats {
   sleepCapacityCorrelation: number | null; // Pearson r
 }
 
+// ---------- Weekday pattern (Day planning) ----------
+export interface WeekdayPattern {
+  todayIsUsuallyLow: boolean;
+  avgToday: number;
+  avgOverall: number;
+  lowestWeekdayLabel?: string;
+}
+
 // ---------- Day planning ----------
 export interface CalendarEvent {
   id: string;
@@ -145,6 +153,7 @@ export interface DayPlan {
   summary: string;
   items: PlanItem[];
   suggestedMessages?: { to: string; channel: 'email' | 'slack'; text: string }[]; // reschedule notes, Slack replies
+  focusBlock?: { start: string; end: string; label: string; suggestedTaskIds?: string[] };
   generatedAt: ISODateTime;
   model: string;
 }
@@ -179,7 +188,20 @@ export type AdvocateReply =
   | { type: 'safety'; message: string; resources: string[] };
 
 // ---------- AAC: speak for me in meetings ----------
+export type ContributionMode = 'clarify' | 'calm' | 'status_update' | 'polish';
+
 export interface MeetingContribution {
+  text: string; // clear, adult phrased text, <= 80 words
+  why: string; // explanation for the phrasing
   spoken: string; // clear, professional, <= 3 sentences, for TTS
   chat: string; // same content formatted for the meeting chat
+}
+
+export interface MeetingPrep {
+  purpose: string;
+  likelyQuestions: string[];
+  myPoints: string[];
+  suggestedPhrases: string[];
+  whatToExpect: { duration: string; speakingExpectation: string; cameraRequired: boolean };
+  why: string;
 }

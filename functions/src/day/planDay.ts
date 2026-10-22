@@ -4,7 +4,7 @@ import { logger } from 'firebase-functions';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY, MODEL } from '../lib/ai';
 import { requireAuth, REGION } from '../lib/auth';
-import type { CalendarEvent, Checkin, DayPlan, UserCategory, WorkTask } from '../lib/types';
+import type { CalendarEvent, Checkin, DayPlan, UserCategory, WorkTask, WeekdayPattern } from '../lib/types';
 
 const Item = z.object({
   id: z.string(),
@@ -29,6 +29,12 @@ const Out = z.object({
       text: z.string(),
     })
   ).optional(),
+  focusBlock: z.object({
+    start: z.string(),
+    end: z.string(),
+    label: z.string(),
+    suggestedTaskIds: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 const SYSTEM = `You adapt a junior employee's workday to their self-reported Daily Capacity (1-10) and fluctuating health conditions / neurodivergence.
@@ -44,14 +50,14 @@ General Capacity rules (score 1-10):
 Category-specific adaptation rules (apply all categories that the user has):
 1. chronic (endometriosis, chronic migraine, fibromyalgia, lupus, long COVID, ME/CFS):
    - When capacity <= 3 (low) or pain/fatigue is high:
-     * Long movable group meetings, specifically "Sprint planning", MUST be adapted to action: "make_async" with a polite drafted note to the manager/team.
+     * Long movable group meetings (e.g., "Sprint planning" or team reviews) MUST be adapted to action: "make_async" with a polite drafted note to the manager/team.
      * Scheduled rest breaks (kind: "break", action: "add_break", title: "Rest break", duration 15-30 min) MUST be added throughout the day (e.g. between meetings or after stand-up) to manage pain and pacing.
      * Every item reason must cite capacity or symptoms (e.g., "Daily capacity is 3/10; sprint planning is made async to conserve physical energy").
 
 2. neurodivergent (ADHD, autism, dyslexia):
-   - Large, complex, or blocked tasks (specifically "QA-311") MUST have a concrete, actionable 5-minute starter step in "firstStep" (e.g., "Open Jira QA-311 and paste the test plan template").
+   - Large, complex, or blocked tasks MUST have a concrete, actionable 5-minute starter step in "firstStep" (e.g., "Open task workspace and review the template or first checklist item").
    - Deep work protection: schedule a protected focus block (kind: "focus", action: "focus_block", title: "Focus block: deep work") of at least 60-90 minutes.
-   - Low social battery / high sensory load: Social or non-essential 1:1 meetings (specifically "Coffee chat 1:1 with new joiner") MUST be dropped for today with action: "drop_today" (displayed as "Not today" in UI).
+   - Low social battery / high sensory load: Social or non-essential 1:1 meetings (e.g., "Coffee chat" or informal catch-ups) MUST be dropped for today with action: "drop_today" (displayed as "Not today" in UI).
 
 3. psychosocial (anxiety, depression, burnout) or hard_day mode:
    - When in hard_day mode or anxiety/overwhelm is high:
@@ -67,7 +73,7 @@ Strict constraints:
 
 export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, async (req) => {
   requireAuth(req);
-  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false } = (req.data ?? {}) as {
+  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false, weekdayPattern, protectDay = false } = (req.data ?? {}) as {
     date: string;
     checkin: Checkin | null;
     categories: UserCategory[];
@@ -75,6 +81,8 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
     tasks: WorkTask[];
     workHours: { start: string; end: string };
     hardDay: boolean;
+    weekdayPattern?: WeekdayPattern;
+    protectDay?: boolean;
   };
 
   const capacityScore = hardDay
@@ -86,7 +94,9 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
   const prompt = `Date: ${date}. Work hours: ${workHours.start}-${workHours.end}. Mode: ${mode}. Capacity score: ${capacityScore}/10 (${capacity}).
 Categories: ${categories.join(', ') || 'none'}.
 Check-in: ${checkin ? JSON.stringify({ capacityScore: checkin.capacityScore, metrics: checkin.metrics, workedLateYesterday: checkin.workedLateYesterday, symptoms: checkin.symptoms }) : 'none (assume capacity 5)'}
-Events: ${JSON.stringify(events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, movable: e.movable, attendees: e.attendees })))}
+${weekdayPattern?.todayIsUsuallyLow ? `Weekday pattern: Today is historically a low-energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall} overall). Avoid long meetings in first 2 hours and schedule a morning buffer.
+` : ''}${protectDay ? `Protect Day Mode: ACTIVE. Group movable meetings into a single window to eliminate context switching, and schedule a continuous deep work focus block of 2.5–3 hours. Output focusBlock: { start: "HH:mm", end: "HH:mm", label: string, suggestedTaskIds: string[] }.
+` : ''}Events: ${JSON.stringify(events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, movable: e.movable, attendees: e.attendees })))}
 Tasks: ${JSON.stringify(tasks.filter((t) => t.status !== 'done').map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, estimateMin: t.estimateMin, daysInStatus: t.daysInStatus })))}
 Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"reduced", "items": [{ "id", "kind", "refId"?, "title", "start"? "HH:mm", "end"?, "action", "reason", "firstStep"? }] in time order, "suggestedMessages"?: [{ "to", "channel": "email"|"slack", "text" }] }`;
 
@@ -158,11 +168,11 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
   const isPsychosocial = categories.includes('psychosocial');
   const isLowCapacity = capacity === 'low' || capacityScore <= 3 || hardDay;
 
-  // 2. Acceptance Criterion: Ioana cap 3 -> sprint planning async + pauze
+  // 2. Chronic condition low capacity -> sprint planning async + breaks
   if (isChronic && isLowCapacity) {
     let sprintFound = false;
     items = items.map((item) => {
-      if (item.kind === 'event' && /sprint planning/i.test(item.title)) {
+      if (item.kind === 'event' && (/sprint planning/i.test(item.title) || /team sync|retro/i.test(item.title))) {
         sprintFound = true;
         return {
           ...item,
@@ -174,7 +184,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     });
 
     if (!sprintFound) {
-      const sprintEv = events.find((e) => /sprint planning/i.test(e.title));
+      const sprintEv = events.find((e) => /sprint planning/i.test(e.title) || (e.movable && /sync|retro/i.test(e.title)));
       if (sprintEv) {
         items.push({
           id: sprintEv.id,
@@ -202,11 +212,11 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     }
   }
 
-  // 3. Acceptance Criterion: Matei -> focus block, coffee chat "Not today", primul pas la QA-311
+  // 3. Neurodivergent -> focus block, drop non-essential social chats, 5-minute starter step
   if (isNeurodivergent) {
     let coffeeFound = false;
     items = items.map((item) => {
-      if (item.kind === 'event' && /coffee chat/i.test(item.title)) {
+      if (item.kind === 'event' && (/coffee chat/i.test(item.title) || /social|casual|catch-up/i.test(item.title))) {
         coffeeFound = true;
         return {
           ...item,
@@ -218,7 +228,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     });
 
     if (!coffeeFound) {
-      const coffeeEv = events.find((e) => /coffee chat/i.test(e.title));
+      const coffeeEv = events.find((e) => /coffee chat/i.test(e.title) || (e.movable && /social|casual|coffee/i.test(e.title)));
       if (coffeeEv) {
         items.push({
           id: coffeeEv.id,
@@ -237,7 +247,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
       items.push({
         id: `focus-${Date.now()}`,
         kind: 'focus',
-        title: 'Focus block: QA regression test plan',
+        title: tasks[0]?.title ? `Focus block: ${tasks[0].title}` : 'Focus block: deep work',
         start: '11:00',
         end: '12:30',
         action: 'focus_block',
@@ -245,34 +255,40 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
       });
     }
 
-    // Ensure primul pas la QA-311
-    let qa311Found = false;
+    // Ensure 5-minute starter step for blocked or complex tasks
+    let starterTaskFound = false;
     items = items.map((item) => {
-      if (item.refId === 'QA-311' || (/QA-311/i.test(item.title) && item.kind === 'task')) {
-        qa311Found = true;
-        return {
-          ...item,
-          firstStep: item.firstStep || 'Open Jira QA-311 and paste the checkout v2 test plan template to get started.',
-        };
+      if (item.kind === 'task') {
+        const t = item.refId ? knownTasks.get(item.refId) : undefined;
+        if (t?.status === 'blocked' || !starterTaskFound) {
+          starterTaskFound = true;
+          return {
+            ...item,
+            action: item.action === 'keep' ? 'split' : item.action,
+            firstStep: item.firstStep || `Open ${t ? t.id : 'task'} workspace and review initial checklist to get started.`,
+          };
+        }
       }
       return item;
     });
 
-    if (!qa311Found && knownTasks.has('QA-311')) {
-      const t = knownTasks.get('QA-311')!;
-      items.push({
-        id: `task-QA-311`,
-        kind: 'task',
-        refId: 'QA-311',
-        title: `${t.id}: ${t.title}`,
-        action: 'split',
-        reason: 'Large blocked task unblocked with a dedicated 5-minute starter step.',
-        firstStep: 'Open Jira QA-311 and paste the checkout v2 test plan template to get started.',
-      });
+    if (!starterTaskFound) {
+      const blockedTask = tasks.find((t) => t.status === 'blocked') || tasks[0];
+      if (blockedTask && knownTasks.has(blockedTask.id)) {
+        items.push({
+          id: `task-${blockedTask.id}`,
+          kind: 'task',
+          refId: blockedTask.id,
+          title: `${blockedTask.id}: ${blockedTask.title}`,
+          action: 'split',
+          reason: 'Large or blocked task unblocked with a dedicated 5-minute starter step.',
+          firstStep: `Open ${blockedTask.id} and review initial checklist to get started.`,
+        });
+      }
     }
   }
 
-  // 4. Acceptance Criterion: Elena "hard day" -> notificări reduse, max 3 task-uri, draft Slack
+  // 4. Hard day / Psychosocial -> reduced notifications, max 3 tasks, draft Slack update
   let notificationLevel = (hardDay || (isPsychosocial && isLowCapacity)) ? 'reduced' : out.notificationLevel;
   let suggestedMessages = out.suggestedMessages ? [...out.suggestedMessages] : [];
 
@@ -300,6 +316,92 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     }
   }
 
+  // 5. Weekday pattern rule: if today is usually a low day, avoid long early meetings and add morning buffer
+  if (weekdayPattern?.todayIsUsuallyLow) {
+    const startHour = parseInt(workHours.start.split(':')[0], 10) || 9;
+    const earlyCutoffHour = startHour + 2;
+
+    items = items.map((item) => {
+      if (item.kind === 'event') {
+        const itemHour = item.start ? parseInt(item.start.split(':')[0], 10) : 12;
+        if (itemHour < earlyCutoffHour) {
+          const ev = item.refId ? knownEvents.get(item.refId) : undefined;
+          if (ev?.movable) {
+            return {
+              ...item,
+              action: 'move',
+              reason: `Today is historically a low-energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall}); early movable meeting shifted to avoid early cognitive fatigue.`,
+            };
+          }
+        }
+      }
+      return item;
+    });
+
+    const hasMorningBuffer = items.some((i) => i.kind === 'break' && (i.title.toLowerCase().includes('buffer') || i.title.toLowerCase().includes('ramp-up')));
+    if (!hasMorningBuffer) {
+      items.unshift({
+        id: `buffer-${Date.now()}`,
+        kind: 'break',
+        title: 'Morning buffer & gentle ramp-up',
+        start: workHours.start,
+        end: `${String(startHour).padStart(2, '0')}:30`,
+        action: 'add_break',
+        reason: `Scheduled morning buffer because today is historically a lower energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall}).`,
+      });
+    }
+  }
+
+  // 6. Protect Day Mode: group movable meetings together and guarantee a 2.5-3h focus block
+  let focusBlock = out.focusBlock;
+  if (protectDay) {
+    let nextSlotHour = 13;
+    let nextSlotMin = 30;
+    items = items.map((item) => {
+      if (item.kind === 'event') {
+        const ev = item.refId ? knownEvents.get(item.refId) : undefined;
+        if (ev?.movable) {
+          const startStr = `${String(nextSlotHour).padStart(2, '0')}:${String(nextSlotMin).padStart(2, '0')}`;
+          nextSlotMin += 30;
+          if (nextSlotMin >= 60) {
+            nextSlotHour += 1;
+            nextSlotMin = 0;
+          }
+          const endStr = `${String(nextSlotHour).padStart(2, '0')}:${String(nextSlotMin).padStart(2, '0')}`;
+          return {
+            ...item,
+            start: startStr,
+            end: endStr,
+            action: 'move',
+            reason: 'Context switches reduced: grouped with other meetings into afternoon block to free a continuous deep focus window.',
+          };
+        }
+      }
+      return item;
+    });
+
+    const hasProtectedFocus = items.some((i) => i.kind === 'focus' && i.action === 'focus_block');
+    if (!hasProtectedFocus) {
+      items.push({
+        id: `focus-protected-${Date.now()}`,
+        kind: 'focus',
+        title: 'Deep work focus block',
+        start: '10:00',
+        end: '13:00',
+        action: 'focus_block',
+        reason: 'Protected continuous 3-hour focus window without meetings for deep work and task execution.',
+      });
+    }
+
+    const unassignedTasks = tasks.filter((t) => t.status !== 'done').slice(0, 3).map((t) => t.id);
+    focusBlock = {
+      start: '10:00',
+      end: '13:00',
+      label: 'Deep work focus block',
+      suggestedTaskIds: unassignedTasks,
+    };
+  }
+
   const plan: DayPlan = {
     date,
     capacity,
@@ -308,6 +410,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     summary: out.summary,
     items,
     suggestedMessages: suggestedMessages.length > 0 ? suggestedMessages : undefined,
+    focusBlock,
     generatedAt: new Date().toISOString(),
     model: MODEL,
   };

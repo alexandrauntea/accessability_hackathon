@@ -61,6 +61,7 @@ export default function SpeakForMeScreen() {
   function speak(textToSpeak: string) {
     const clean = textToSpeak.trim();
     if (!clean) return;
+
     stopSpeaking();
     setIsSpeaking(true);
 
@@ -134,7 +135,7 @@ export default function SpeakForMeScreen() {
 
   const hasCompose = typeof composeContribution === 'function';
 
-  async function compose(mode: 'polish' | 'status_update') {
+  async function compose(mode: 'clarify' | 'calm' | 'status_update') {
     setBusy(true);
     try {
       const res = await composeContribution({
@@ -145,8 +146,8 @@ export default function SpeakForMeScreen() {
         tasks: tasks.map(({ id, title, status }) => ({ id, title, status })),
       });
       setOut(res);
-      if (res.spoken) {
-        setDraft(res.spoken); // Keeps text editable before Speak/Copy
+      if (res.text) {
+        setDraft(res.text); // Keeps text editable before Speak/Copy
       }
       await confirm();
     } catch {
@@ -253,15 +254,24 @@ export default function SpeakForMeScreen() {
           />
         </View>
 
-        {/* Placeholder for composeContribution (T4), visible if available */}
         {hasCompose ? (
           <View style={{ gap: 8, marginTop: 16 }}>
             <AppText variant="muted">AI assistance:</AppText>
             <AppButton
               kind="secondary"
               label="Make it clear and professional"
+              hint="Clarifies notes into a direct, professional message"
               accessibilityLabel="Make message clear and professional with AI"
-              onPress={() => compose('polish')}
+              onPress={() => compose('clarify')}
+              disabled={!draft.trim()}
+              busy={busy}
+            />
+            <AppButton
+              kind="secondary"
+              label="Calm phrasing for manager"
+              hint="Reframes a question or update calmly to reduce anxiety"
+              accessibilityLabel="Reframe draft with calm phrasing for manager with AI"
+              onPress={() => compose('calm')}
               disabled={!draft.trim()}
               busy={busy}
             />
@@ -279,19 +289,19 @@ export default function SpeakForMeScreen() {
 
       {out ? (
         <Card ai>
-          <AiBadge why="Rewritten from your words and task list; you can edit it before speaking or copying" />
-          <AppText style={{ fontSize: font.h2, lineHeight: font.h2 * 1.5 }}>{out.spoken}</AppText>
+          <AiBadge why={out.why || "Rewritten from your words and task list; you can edit it before speaking or copying"} />
+          <AppText style={{ fontSize: font.h2, lineHeight: font.h2 * 1.5 }}>{out.text || out.spoken}</AppText>
           <View style={{ gap: 8, marginTop: 8 }}>
             <AppButton
-              label="Speak AI message"
-              accessibilityLabel={`Speak: ${out.spoken}`}
-              onPress={() => speak(out.spoken)}
+              label="Speak"
+              accessibilityLabel={`Speak: ${out.text || out.spoken}`}
+              onPress={() => speak(out.text || out.spoken)}
             />
             <AppButton
               kind="secondary"
-              label="Copy AI chat text"
+              label="Copy for the meeting chat"
               accessibilityLabel="Copy AI formatted text for meeting chat"
-              onPress={() => copyToChat(out.chat)}
+              onPress={() => copyToChat(out.chat || out.text)}
             />
             <AppButton
               kind="secondary"

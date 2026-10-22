@@ -1,12 +1,12 @@
-/**
+﻿/**
  * SHARED CONTRACT — typed wrappers for every Cloud Function.
  * Pre-wired for all three slices so nobody has to edit this file mid-hackathon.
  */
 import { httpsCallable } from 'firebase/functions';
 import { functions } from './firebase';
 import type {
-  AdvocateReply, CalendarEvent, Checkin, DayPlan, MeetingContribution, MetricKey, ParsedCheckin, RequestCategory,
-  StateSummary, Stats, UserCategory, UserProfile, WorkTask,
+  AdvocateReply, CalendarEvent, Checkin, DayPlan, MeetingContribution, MeetingPrep, MetricKey, ParsedCheckin, RequestCategory,
+  StateSummary, Stats, UserCategory, UserProfile, WeekdayPattern, WorkTask,
 } from './types';
 
 function call<Req, Res>(name: string) {
@@ -20,15 +20,30 @@ export const summarizeState = call<{ date: string; stats: Stats; recent: Checkin
 
 // Alexandra
 export const planDay = call<
-  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean },
+  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean; weekdayPattern?: WeekdayPattern; protectDay?: boolean },
   DayPlan
 >('planDay');
 export const breakdownTask = call<{ task: WorkTask; capacity: Checkin['capacity'] }, { firstStep: string; steps: string[] }>('breakdownTask');
 export const jiraIssues = call<Record<string, never>, WorkTask[]>('jiraIssues');
 export const composeContribution = call<
-  { draft: string; meetingTitle?: string; checkin?: Pick<Checkin, 'capacityScore'> | null; tasks?: Pick<WorkTask, 'id' | 'title' | 'status'>[]; mode: 'polish' | 'status_update' },
+  {
+    draft: string;
+    meetingTitle?: string;
+    checkin?: Pick<Checkin, 'capacityScore'> | null;
+    tasks?: Pick<WorkTask, 'id' | 'title' | 'status'>[];
+    mode: 'clarify' | 'calm' | 'status_update' | 'polish';
+  },
   MeetingContribution
 >('composeContribution');
+export const prepareMeeting = call<
+  {
+    meetingTitle: string;
+    durationMin?: number;
+    attendeesCount?: number;
+    tasks?: Pick<WorkTask, 'id' | 'title'>[];
+  },
+  MeetingPrep
+>('prepareMeeting');
 
 // Alina
 export const advocateChat = call<{ requestId: string; message: string; category?: RequestCategory }, AdvocateReply>('advocateChat');
