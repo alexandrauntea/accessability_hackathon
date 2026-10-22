@@ -153,6 +153,7 @@ export interface DayPlan {
   summary: string;
   items: PlanItem[];
   suggestedMessages?: { to: string; channel: 'email' | 'slack'; text: string }[]; // reschedule notes, Slack replies
+  focusBlock?: { start: string; end: string; label: string; suggestedTaskIds?: string[] };
   generatedAt: ISODateTime;
   model: string;
 }

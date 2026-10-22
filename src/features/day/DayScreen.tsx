@@ -28,6 +28,7 @@ export default function DayScreen() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tasks, setTasks] = useState<WorkTask[]>([]);
   const [plan, setPlan] = useState<DayPlan | null>(null);
+  const [proposedProtectedPlan, setProposedProtectedPlan] = useState<DayPlan | null>(null);
   const [firstStep, setFirstStep] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +69,7 @@ export default function DayScreen() {
   useFocusEffect(useCallback(() => { load().catch(() => {}); }, [load]));
   const google = useGoogleCalendarAuth(() => load());
 
-  async function adapt(hardDay = false) {
+  async function adapt(hardDay = false, protectDay = false) {
     setBusy(true); setError(null);
     try {
       const p = await planDay({
@@ -80,9 +81,14 @@ export default function DayScreen() {
         workHours: profile?.workHours ?? { start: '09:00', end: '17:30' },
         hardDay,
         weekdayPattern: patternAnalysis?.pattern,
+        protectDay,
       });
-      setPlan(p);
-      await saveDayPlan(p);
+      if (protectDay) {
+        setProposedProtectedPlan(p);
+      } else {
+        setPlan(p);
+        await saveDayPlan(p);
+      }
       await feedback.confirm();
     } catch (err) {
       console.error('Failed to adapt day:', err);
@@ -119,21 +125,85 @@ export default function DayScreen() {
   const spoken = plan
     ? `Adapted plan: capacity ${checkin?.capacityScore ?? 'unknown'} of 10. ${plan.summary}`
     : `My day: ${events.length} meetings and ${tasks.length} tasks scheduled today.`;
-  const showGoogle = Platform.OS === 'web' && !config.mockCalendar && google.ready;
 
   return (
     <Screen title="My day" speakText={spoken}>
       {!checkin ? <Card><AppText>Tip: do your check-in first so the plan matches your current capacity.</AppText></Card> : null}
       <View style={{ gap: 8 }}>
-        <AppButton label="Adapt my day" hint="AI re-plans meetings and tasks around today's capacity" onPress={() => adapt(false)} busy={busy} />
-        <AppButton kind="secondary" label="It's a hard day" hint="Fewer meetings, small clear tasks, messages drafted for you" onPress={() => adapt(true)} />
+        <AppButton label="Adapt my day" hint="AI re-plans meetings and tasks around today's capacity" onPress={() => adapt(false, false)} busy={busy} />
+        <AppButton kind="secondary" label="Protect my day" hint="Groups meetings and clears a 2.5-3h deep work focus block" onPress={() => adapt(false, true)} busy={busy} />
+        <AppButton kind="secondary" label="It's a hard day" hint="Fewer meetings, small clear tasks, messages drafted for you" onPress={() => adapt(true, false)} />
       </View>
       {error ? <AppText accessibilityRole="alert">{error}</AppText> : null}
+
+      {/* Protect my day proposal diff card */}
+      {proposedProtectedPlan ? (
+        <Card ai>
+          <AppText variant="h2">Protect my day proposal</AppText>
+          <AiBadge why="Grouped movable meetings and carved out a 3-hour deep work focus block" />
+          
+          <View style={{ gap: 8, marginVertical: 8 }}>
+            <AppText style={{ fontWeight: '700' }}>Schedule comparison (text diff):</AppText>
+            <View style={{ padding: 8, backgroundColor: 'rgba(255, 0, 0, 0.05)', borderRadius: 6, gap: 4 }}>
+              <AppText style={{ fontWeight: '600', color: '#b3261e' }}>Before (current schedule):</AppText>
+              <AppText variant="muted">
+                {events.filter((e) => e.movable).length > 0
+                  ? `Movable meetings scattered throughout the day (${events.filter((e) => e.movable).map((e) => e.title).join(', ')}), causing frequent context switching.`
+                  : 'Scattered schedule without a dedicated deep work focus block.'}
+              </AppText>
+            </View>
+
+            <View style={{ padding: 8, backgroundColor: 'rgba(0, 128, 0, 0.05)', borderRadius: 6, gap: 4 }}>
+              <AppText style={{ fontWeight: '600', color: '#0d7a46' }}>After (protected schedule):</AppText>
+              <AppText variant="muted">
+                {`Movable meetings grouped together in afternoon block. Protected continuous focus block: ${proposedProtectedPlan.focusBlock?.start || '10:00'}–${proposedProtectedPlan.focusBlock?.end || '13:00'} for deep work.`}
+              </AppText>
+              {proposedProtectedPlan.focusBlock?.suggestedTaskIds?.length ? (
+                <AppText variant="muted">
+                  Suggested focus tasks: {proposedProtectedPlan.focusBlock.suggestedTaskIds.join(', ')}
+                </AppText>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Accept"
+                accessibilityLabel="Accept protected day plan"
+                onPress={async () => {
+                  setPlan(proposedProtectedPlan);
+                  await saveDayPlan(proposedProtectedPlan);
+                  setProposedProtectedPlan(null);
+                  await feedback.confirm();
+                }}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                kind="secondary"
+                label="Keep as is"
+                accessibilityLabel="Keep current schedule as is"
+                onPress={() => {
+                  setProposedProtectedPlan(null);
+                }}
+              />
+            </View>
+          </View>
+        </Card>
+      ) : null}
 
       {plan ? (
         <Card ai>
           <AppText variant="h2">Adapted plan (capacity {checkin?.capacityScore ?? '?'}/10{plan.mode === 'hard_day' ? ', hard-day mode' : ''})</AppText>
           {plan.notificationLevel === 'reduced' ? <AppText>Notifications reduced for today: only messages from your manager and meeting reminders.</AppText> : null}
+          {plan.focusBlock ? (
+            <View style={{ paddingVertical: 4 }}>
+              <AppText style={{ fontWeight: '700', color: '#0d7a46' }}>
+                Protected focus block: {plan.focusBlock.start}–{plan.focusBlock.end} ({plan.focusBlock.label})
+              </AppText>
+            </View>
+          ) : null}
           <AiBadge why="Based on today's check-in capacity, calendar events and tasks" />
           <AppText>{plan.summary}</AppText>
           {plan.items.map((i) => (

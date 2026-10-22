@@ -20,7 +20,7 @@ export const summarizeState = call<{ date: string; stats: Stats; recent: Checkin
 
 // Alexandra
 export const planDay = call<
-  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean; weekdayPattern?: WeekdayPattern },
+  { date: string; checkin: Checkin | null; categories: UserCategory[]; events: CalendarEvent[]; tasks: WorkTask[]; workHours: UserProfile['workHours']; hardDay: boolean; weekdayPattern?: WeekdayPattern; protectDay?: boolean },
   DayPlan
 >('planDay');
 export const breakdownTask = call<{ task: WorkTask; capacity: Checkin['capacity'] }, { firstStep: string; steps: string[] }>('breakdownTask');

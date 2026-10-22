@@ -29,6 +29,12 @@ const Out = z.object({
       text: z.string(),
     })
   ).optional(),
+  focusBlock: z.object({
+    start: z.string(),
+    end: z.string(),
+    label: z.string(),
+    suggestedTaskIds: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 const SYSTEM = `You adapt a junior employee's workday to their self-reported Daily Capacity (1-10) and fluctuating health conditions / neurodivergence.
@@ -67,7 +73,7 @@ Strict constraints:
 
 export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, async (req) => {
   requireAuth(req);
-  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false, weekdayPattern } = (req.data ?? {}) as {
+  const { date, checkin, categories = [], events = [], tasks = [], workHours = { start: '09:00', end: '17:30' }, hardDay = false, weekdayPattern, protectDay = false } = (req.data ?? {}) as {
     date: string;
     checkin: Checkin | null;
     categories: UserCategory[];
@@ -76,6 +82,7 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
     workHours: { start: string; end: string };
     hardDay: boolean;
     weekdayPattern?: WeekdayPattern;
+    protectDay?: boolean;
   };
 
   const capacityScore = hardDay
@@ -88,6 +95,7 @@ export const planDay = onCall({ region: REGION, secrets: [GEMINI_API_KEY] }, asy
 Categories: ${categories.join(', ') || 'none'}.
 Check-in: ${checkin ? JSON.stringify({ capacityScore: checkin.capacityScore, metrics: checkin.metrics, workedLateYesterday: checkin.workedLateYesterday, symptoms: checkin.symptoms }) : 'none (assume capacity 5)'}
 ${weekdayPattern?.todayIsUsuallyLow ? `Weekday pattern: Today is historically a low-energy day (avg ${weekdayPattern.avgToday} vs ${weekdayPattern.avgOverall} overall). Avoid long meetings in first 2 hours and schedule a morning buffer.
+` : ''}${protectDay ? `Protect Day Mode: ACTIVE. Group movable meetings into a single window to eliminate context switching, and schedule a continuous deep work focus block of 2.5–3 hours. Output focusBlock: { start: "HH:mm", end: "HH:mm", label: string, suggestedTaskIds: string[] }.
 ` : ''}Events: ${JSON.stringify(events.map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end, movable: e.movable, attendees: e.attendees })))}
 Tasks: ${JSON.stringify(tasks.filter((t) => t.status !== 'done').map((t) => ({ id: t.id, title: t.title, status: t.status, priority: t.priority, estimateMin: t.estimateMin, daysInStatus: t.daysInStatus })))}
 Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"reduced", "items": [{ "id", "kind", "refId"?, "title", "start"? "HH:mm", "end"?, "action", "reason", "firstStep"? }] in time order, "suggestedMessages"?: [{ "to", "channel": "email"|"slack", "text" }] }`;
@@ -338,6 +346,56 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     }
   }
 
+  // 6. Protect Day Mode: group movable meetings together and guarantee a 2.5-3h focus block
+  let focusBlock = out.focusBlock;
+  if (protectDay) {
+    let nextSlotHour = 13;
+    let nextSlotMin = 30;
+    items = items.map((item) => {
+      if (item.kind === 'event') {
+        const ev = item.refId ? knownEvents.get(item.refId) : undefined;
+        if (ev?.movable) {
+          const startStr = `${String(nextSlotHour).padStart(2, '0')}:${String(nextSlotMin).padStart(2, '0')}`;
+          nextSlotMin += 30;
+          if (nextSlotMin >= 60) {
+            nextSlotHour += 1;
+            nextSlotMin = 0;
+          }
+          const endStr = `${String(nextSlotHour).padStart(2, '0')}:${String(nextSlotMin).padStart(2, '0')}`;
+          return {
+            ...item,
+            start: startStr,
+            end: endStr,
+            action: 'move',
+            reason: 'Context switches reduced: grouped with other meetings into afternoon block to free a continuous deep focus window.',
+          };
+        }
+      }
+      return item;
+    });
+
+    const hasProtectedFocus = items.some((i) => i.kind === 'focus' && i.action === 'focus_block');
+    if (!hasProtectedFocus) {
+      items.push({
+        id: `focus-protected-${Date.now()}`,
+        kind: 'focus',
+        title: 'Deep work focus block',
+        start: '10:00',
+        end: '13:00',
+        action: 'focus_block',
+        reason: 'Protected continuous 3-hour focus window without meetings for deep work and task execution.',
+      });
+    }
+
+    const unassignedTasks = tasks.filter((t) => t.status !== 'done').slice(0, 3).map((t) => t.id);
+    focusBlock = {
+      start: '10:00',
+      end: '13:00',
+      label: 'Deep work focus block',
+      suggestedTaskIds: unassignedTasks,
+    };
+  }
+
   const plan: DayPlan = {
     date,
     capacity,
@@ -346,6 +404,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     summary: out.summary,
     items,
     suggestedMessages: suggestedMessages.length > 0 ? suggestedMessages : undefined,
+    focusBlock,
     generatedAt: new Date().toISOString(),
     model: MODEL,
   };
