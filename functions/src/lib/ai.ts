@@ -1,4 +1,4 @@
-// Owner: Alexandra (foundation, frozen after hour 2). The ONLY place that talks to Gemini.
+﻿// Owner: Alexandra (foundation, frozen after hour 2). The ONLY place that talks to Gemini.
 import { GoogleGenAI, HarmBlockThreshold, HarmCategory } from '@google/genai';
 import { defineSecret } from 'firebase-functions/params';
 import { logger } from 'firebase-functions';
@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { GUARDRAILS } from './safety';
 
 export const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
-export const MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+export const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
 
 let client: GoogleGenAI | null = null;
 const ai = () => {

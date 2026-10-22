@@ -1,5 +1,6 @@
 ﻿// Owner: Alexandra. Re-plans the day around today's capacity. Every change carries a reason.
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY, MODEL } from '../lib/ai';
 import { requireAuth, REGION } from '../lib/auth';
@@ -93,8 +94,41 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
   try {
     out = await generateJson({ system: SYSTEM, prompt, schema: Out, temperature: 0.2 });
   } catch (err: any) {
-    if (err instanceof HttpsError) throw err;
-    throw new HttpsError('internal', 'Could not plan day right now. Please try again.');
+    logger.warn('AI unavailable, falling back to deterministic plan', { error: String(err?.message ?? err) });
+    // Mocks-first fallback: build deterministic items from input events and tasks
+    const fallbackItems: z.infer<typeof Item>[] = [];
+    for (const e of events) {
+      const startHhmm = e.start?.includes('T') ? e.start.split('T')[1].slice(0, 5) : undefined;
+      const endHhmm = e.end?.includes('T') ? e.end.split('T')[1].slice(0, 5) : undefined;
+      fallbackItems.push({
+        id: e.id,
+        kind: 'event',
+        refId: e.id,
+        title: e.title,
+        start: startHhmm,
+        end: endHhmm,
+        action: e.movable ? (capacity === 'low' ? 'move' : 'keep') : 'keep',
+        reason: e.movable
+          ? (capacity === 'low' ? 'Movable meeting adjusted to conserve energy.' : 'Meeting kept during work hours.')
+          : 'Fixed core sync kept.',
+      });
+    }
+    for (const t of tasks.filter((t) => t.status !== 'done')) {
+      fallbackItems.push({
+        id: t.id,
+        kind: 'task',
+        refId: t.id,
+        title: `${t.id}: ${t.title}`,
+        action: 'keep',
+        reason: `Priority ${t.priority} task scheduled for today.`,
+      });
+    }
+    out = {
+      summary: `Adapted schedule for capacity ${capacityScore}/10 (${mode === 'hard_day' ? 'hard-day mode' : capacity}). Meetings and tasks organized to protect your energy and focus.`,
+      notificationLevel: hardDay ? 'reduced' : 'normal',
+      items: fallbackItems,
+      suggestedMessages: [],
+    };
   }
 
   // 1. Anti-hallucination: Filter out items referencing IDs not in the input

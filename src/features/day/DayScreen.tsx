@@ -59,7 +59,8 @@ export default function DayScreen() {
       setPlan(p);
       await saveDayPlan(p);
       await feedback.confirm();
-    } catch {
+    } catch (err) {
+      console.error('Failed to adapt day:', err);
       setError('Could not adapt the day right now. Your original schedule is unchanged.');
     } finally {
       setBusy(false);
