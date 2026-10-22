@@ -72,7 +72,7 @@ export default function CheckinScreen() {
         source,
       });
       await confirm(); // vibration on phone + discreet sound (respects user prefs in Me)
-      setStatusMessage(`Check-in saved. Daily capacity: ${saved.capacityScore} of 10 — ${anchorFor({ anchors: CAPACITY_ANCHORS }, saved.capacityScore)}`);
+      setStatusMessage(`Check-in saved. Daily capacity: ${saved.capacityScore} of 10 â€” ${anchorFor({ anchors: CAPACITY_ANCHORS }, saved.capacityScore)}`);
       setTimeout(() => {
         router.back();
       }, 500);
@@ -124,7 +124,7 @@ export default function CheckinScreen() {
         />
         {parsed ? (
           <>
-            <AiBadge why={`understood from: "${transcript}"`} />
+            <AiBadge why={`Extracted from what you said: "${transcript}"`} />
             {parsed.unclear.length ? (
               <AppText>Not sure about: {parsed.unclear.join('; ')}. Please set those manually.</AppText>
             ) : null}
@@ -157,7 +157,7 @@ export default function CheckinScreen() {
       {preview ? (
         <Card accessibilityLiveRegion="polite">
           <AppText variant="h2">
-            Daily capacity: {preview.capacityScore} of 10 — {anchorFor({ anchors: CAPACITY_ANCHORS }, preview.capacityScore)}
+            Daily capacity: {preview.capacityScore} of 10 â€” {anchorFor({ anchors: CAPACITY_ANCHORS }, preview.capacityScore)}
           </AppText>
           <AppText variant="muted">
             Average of your scales. Shared with your employer only if you include it in a request you send.
