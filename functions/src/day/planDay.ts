@@ -50,14 +50,14 @@ General Capacity rules (score 1-10):
 Category-specific adaptation rules (apply all categories that the user has):
 1. chronic (endometriosis, chronic migraine, fibromyalgia, lupus, long COVID, ME/CFS):
    - When capacity <= 3 (low) or pain/fatigue is high:
-     * Long movable group meetings, specifically "Sprint planning", MUST be adapted to action: "make_async" with a polite drafted note to the manager/team.
+     * Long movable group meetings (e.g., "Sprint planning" or team reviews) MUST be adapted to action: "make_async" with a polite drafted note to the manager/team.
      * Scheduled rest breaks (kind: "break", action: "add_break", title: "Rest break", duration 15-30 min) MUST be added throughout the day (e.g. between meetings or after stand-up) to manage pain and pacing.
      * Every item reason must cite capacity or symptoms (e.g., "Daily capacity is 3/10; sprint planning is made async to conserve physical energy").
 
 2. neurodivergent (ADHD, autism, dyslexia):
-   - Large, complex, or blocked tasks (specifically "QA-311") MUST have a concrete, actionable 5-minute starter step in "firstStep" (e.g., "Open Jira QA-311 and paste the test plan template").
+   - Large, complex, or blocked tasks MUST have a concrete, actionable 5-minute starter step in "firstStep" (e.g., "Open task workspace and review the template or first checklist item").
    - Deep work protection: schedule a protected focus block (kind: "focus", action: "focus_block", title: "Focus block: deep work") of at least 60-90 minutes.
-   - Low social battery / high sensory load: Social or non-essential 1:1 meetings (specifically "Coffee chat 1:1 with new joiner") MUST be dropped for today with action: "drop_today" (displayed as "Not today" in UI).
+   - Low social battery / high sensory load: Social or non-essential 1:1 meetings (e.g., "Coffee chat" or informal catch-ups) MUST be dropped for today with action: "drop_today" (displayed as "Not today" in UI).
 
 3. psychosocial (anxiety, depression, burnout) or hard_day mode:
    - When in hard_day mode or anxiety/overwhelm is high:
@@ -168,11 +168,11 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
   const isPsychosocial = categories.includes('psychosocial');
   const isLowCapacity = capacity === 'low' || capacityScore <= 3 || hardDay;
 
-  // 2. Acceptance Criterion: Ioana cap 3 -> sprint planning async + pauze
+  // 2. Chronic condition low capacity -> sprint planning async + breaks
   if (isChronic && isLowCapacity) {
     let sprintFound = false;
     items = items.map((item) => {
-      if (item.kind === 'event' && /sprint planning/i.test(item.title)) {
+      if (item.kind === 'event' && (/sprint planning/i.test(item.title) || /team sync|retro/i.test(item.title))) {
         sprintFound = true;
         return {
           ...item,
@@ -184,7 +184,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     });
 
     if (!sprintFound) {
-      const sprintEv = events.find((e) => /sprint planning/i.test(e.title));
+      const sprintEv = events.find((e) => /sprint planning/i.test(e.title) || (e.movable && /sync|retro/i.test(e.title)));
       if (sprintEv) {
         items.push({
           id: sprintEv.id,
@@ -212,11 +212,11 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     }
   }
 
-  // 3. Acceptance Criterion: Matei -> focus block, coffee chat "Not today", primul pas la QA-311
+  // 3. Neurodivergent -> focus block, drop non-essential social chats, 5-minute starter step
   if (isNeurodivergent) {
     let coffeeFound = false;
     items = items.map((item) => {
-      if (item.kind === 'event' && /coffee chat/i.test(item.title)) {
+      if (item.kind === 'event' && (/coffee chat/i.test(item.title) || /social|casual|catch-up/i.test(item.title))) {
         coffeeFound = true;
         return {
           ...item,
@@ -228,7 +228,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
     });
 
     if (!coffeeFound) {
-      const coffeeEv = events.find((e) => /coffee chat/i.test(e.title));
+      const coffeeEv = events.find((e) => /coffee chat/i.test(e.title) || (e.movable && /social|casual|coffee/i.test(e.title)));
       if (coffeeEv) {
         items.push({
           id: coffeeEv.id,
@@ -247,7 +247,7 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
       items.push({
         id: `focus-${Date.now()}`,
         kind: 'focus',
-        title: 'Focus block: QA regression test plan',
+        title: tasks[0]?.title ? `Focus block: ${tasks[0].title}` : 'Focus block: deep work',
         start: '11:00',
         end: '12:30',
         action: 'focus_block',
@@ -255,34 +255,40 @@ Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"r
       });
     }
 
-    // Ensure primul pas la QA-311
-    let qa311Found = false;
+    // Ensure 5-minute starter step for blocked or complex tasks
+    let starterTaskFound = false;
     items = items.map((item) => {
-      if (item.refId === 'QA-311' || (/QA-311/i.test(item.title) && item.kind === 'task')) {
-        qa311Found = true;
-        return {
-          ...item,
-          firstStep: item.firstStep || 'Open Jira QA-311 and paste the checkout v2 test plan template to get started.',
-        };
+      if (item.kind === 'task') {
+        const t = item.refId ? knownTasks.get(item.refId) : undefined;
+        if (t?.status === 'blocked' || !starterTaskFound) {
+          starterTaskFound = true;
+          return {
+            ...item,
+            action: item.action === 'keep' ? 'split' : item.action,
+            firstStep: item.firstStep || `Open ${t ? t.id : 'task'} workspace and review initial checklist to get started.`,
+          };
+        }
       }
       return item;
     });
 
-    if (!qa311Found && knownTasks.has('QA-311')) {
-      const t = knownTasks.get('QA-311')!;
-      items.push({
-        id: `task-QA-311`,
-        kind: 'task',
-        refId: 'QA-311',
-        title: `${t.id}: ${t.title}`,
-        action: 'split',
-        reason: 'Large blocked task unblocked with a dedicated 5-minute starter step.',
-        firstStep: 'Open Jira QA-311 and paste the checkout v2 test plan template to get started.',
-      });
+    if (!starterTaskFound) {
+      const blockedTask = tasks.find((t) => t.status === 'blocked') || tasks[0];
+      if (blockedTask && knownTasks.has(blockedTask.id)) {
+        items.push({
+          id: `task-${blockedTask.id}`,
+          kind: 'task',
+          refId: blockedTask.id,
+          title: `${blockedTask.id}: ${blockedTask.title}`,
+          action: 'split',
+          reason: 'Large or blocked task unblocked with a dedicated 5-minute starter step.',
+          firstStep: `Open ${blockedTask.id} and review initial checklist to get started.`,
+        });
+      }
     }
   }
 
-  // 4. Acceptance Criterion: Elena "hard day" -> notificări reduse, max 3 task-uri, draft Slack
+  // 4. Hard day / Psychosocial -> reduced notifications, max 3 tasks, draft Slack update
   let notificationLevel = (hardDay || (isPsychosocial && isLowCapacity)) ? 'reduced' : out.notificationLevel;
   let suggestedMessages = out.suggestedMessages ? [...out.suggestedMessages] : [];
 
