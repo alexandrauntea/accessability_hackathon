@@ -6,7 +6,7 @@ import { summarizeState } from '@/src/shared/api';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { todayISO } from '@/src/shared/dates';
 import { METRICS, CAPACITY_ANCHORS, anchorFor } from '@/src/shared/metrics';
-import { computeStats } from '@/src/features/insights/stats';
+import { computeStats, overloadSignal } from '@/src/features/insights/stats';
 import { getTodayCheckin, listCheckins } from './checkinRepo';
 import { DemoPersonaPicker } from './seedDemo';
 import type { Checkin, MetricKey, StateSummary } from '@/src/shared/types';
@@ -17,12 +17,19 @@ export default function TodayScreen() {
   const { profile } = useProfile();
   const [today, setToday] = useState<Checkin | null>(null);
   const [summary, setSummary] = useState<StateSummary | null>(null);
+  const [signal, setSignal] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshToday = useCallback(() => {
     getTodayCheckin().then(setToday).catch(() => {});
-  }, []);
+    listCheckins(14)
+      .then((recent) => {
+        const computed = computeStats(recent, profile?.trackedMetrics ?? []);
+        setSignal(overloadSignal(computed));
+      })
+      .catch(() => {});
+  }, [profile?.trackedMetrics?.join()]);
 
   useFocusEffect(refreshToday);
 
@@ -54,7 +61,7 @@ export default function TodayScreen() {
     : '';
 
   const spoken = today
-    ? `Daily capacity ${today.capacityScore} of 10. ${metricsLine}. ${summary?.headline ?? ''}`
+    ? `Daily capacity ${today.capacityScore} of 10. ${metricsLine}.${signal ? ` Warning: ${signal}` : ''} ${summary?.headline ?? ''}`
     : 'No check-in yet today. Rate your scales in about 10 seconds.';
 
   return (
@@ -74,6 +81,19 @@ export default function TodayScreen() {
           <AppButton kind="secondary" label="Update check-in" hint="Adjust your ratings for today" onPress={() => router.push('/checkin')} />
         </Card>
       )}
+
+      {signal ? (
+        <Card>
+          <AppText variant="h2">Workload pacing warning</AppText>
+          <AppText>{signal}</AppText>
+          <AppButton
+            kind="secondary"
+            label="Talk about workload"
+            hint="Draft an accommodation or workload redistribution request in Support"
+            onPress={() => router.push('/support')}
+          />
+        </Card>
+      ) : null}
 
       <AppButton
         kind="secondary"
