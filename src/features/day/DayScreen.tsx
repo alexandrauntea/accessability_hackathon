@@ -434,6 +434,7 @@ export default function DayScreen() {
                 <AppButton
                   kind="secondary"
                   label="Connect Google Calendar"
+                  hint="Connect your Google account in read-only mode to load real calendar events"
                   accessibilityLabel="Connect your Google Calendar read-only"
                   onPress={google.connect}
                 />
@@ -445,8 +446,9 @@ export default function DayScreen() {
 
       <Card>
         <AppText variant="h2">Calendar ({getCalendar().name})</AppText>
-        {events.map((e) => (
-          <View key={e.id} style={{ gap: 4, paddingVertical: 4 }}>
+        <View accessibilityRole="list" style={{ gap: 4 }}>
+          {events.map((e) => (
+            <View key={e.id} accessibilityRole="listitem" style={{ gap: 4, paddingVertical: 4 }}>
             <AppText>{hhmm(e.start)}–{hhmm(e.end)} · {e.title}{e.movable ? '' : ' (fixed)'}</AppText>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <View style={{ flex: 1 }}>
@@ -470,12 +472,14 @@ export default function DayScreen() {
             </View>
           </View>
         ))}
+        </View>
       </Card>
 
       <Card>
         <AppText variant="h2">Tasks</AppText>
-        {tasks.map((t) => (
-          <View key={t.id} style={{ gap: 4, paddingVertical: 4 }}>
+        <View accessibilityRole="list" style={{ gap: 4 }}>
+          {tasks.map((t) => (
+            <View key={t.id} accessibilityRole="listitem" style={{ gap: 4, paddingVertical: 4 }}>
             <AppText>{t.id} · {t.title} ({t.status}{t.daysInStatus ? `, ${t.daysInStatus} days` : ''})</AppText>
             {firstStep[t.id] ? (
               <View style={{ gap: 4 }}>
@@ -492,6 +496,7 @@ export default function DayScreen() {
             )}
           </View>
         ))}
+        </View>
       </Card>
     </Screen>
   );
