@@ -15,6 +15,9 @@ export function Card({ style, ai, ...rest }: ViewProps & { ai?: boolean }) {
           borderColor: c.border,
           borderWidth: 1,
           borderRadius: radius.card,
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden',
           padding: space.cardPadding,
           gap: space.cardInnerGap,
           ...(isPlain

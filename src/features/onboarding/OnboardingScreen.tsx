@@ -133,7 +133,7 @@ export default function OnboardingScreen() {
                   color: isActive ? c.onPrimary : isDone ? c.onAccentSoft : c.textMuted,
                 }}
               >
-                {isDone ? `✓ ${stepLabel}` : `${idx + 1}. ${stepLabel}`}
+                {isDone ? `${stepLabel}` : `${idx + 1}. ${stepLabel}`}
               </AppText>
             </View>
           );
@@ -167,6 +167,10 @@ export default function OnboardingScreen() {
                     }
                   }}
                   style={({ focused }: any) => ({
+                    alignSelf: 'stretch',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
                     cursor: 'pointer',
                     outlineStyle: focused ? 'solid' : undefined,
                     outlineWidth: focused ? 3 : 0,
@@ -186,7 +190,7 @@ export default function OnboardingScreen() {
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
                       <AppText variant="h2" style={{ color: isSelected ? c.onAccentSoft : c.text, flex: 1, fontWeight: '700' }}>
-                        {isSelected ? '✓ ' : ''}{def.label}
+                        {def.label}
                       </AppText>
                       <View
                         style={{
