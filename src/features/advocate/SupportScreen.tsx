@@ -5,9 +5,10 @@
 // -> preview exactly what HR will see -> checkbox "I reviewed this and want to send it" -> send -> useFeedback().confirm()
 import React, { useEffect, useState } from 'react';
 import { DECODE_SAMPLE_MESSAGES } from '@/src/mocks/demoUser';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { AiBadge, AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { AiBadge, AppButton, AppText, Card, ChipGroup, IconHeader, Screen, TextField } from '@/src/shared/ui';
 import { advocateChat, decodeMessage, sendRequest } from '@/src/shared/api';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
@@ -32,10 +33,19 @@ const DISCLOSURE_OPTIONS: { value: DisclosureLevel; label: string }[] = [
   { value: 'specific', label: 'Specific (name my condition)' },
 ];
 
+const CATEGORY_LABELS: Record<RequestCategory, string> = {
+  workload: 'Workload accommodation',
+  health: 'Health adjustment',
+  mental_health_day: 'Mental health day',
+  appointment: 'Appointment adjustment',
+  social: 'Social/meeting adjustment',
+  other: 'Workplace adjustment',
+};
+
 export default function SupportScreen() {
   const { profile } = useProfile();
   const { confirm: confirmFeedback } = useFeedback();
-  const { c, font } = useTheme();
+  const { c, font, radius, space } = useTheme();
 
   const [needText, setNeedText] = useState('');
   const [selectedChips, setSelectedChips] = useState<string[]>([]);
@@ -127,7 +137,6 @@ export default function SupportScreen() {
         setBody(reply.draft.body);
         setDraftReady(true);
       } else if (reply.type === 'question') {
-        // If clarifying question returned, route to full conversation view
         router.push(`/request/${id}`);
       }
     } catch (err: any) {
@@ -202,15 +211,18 @@ ${profile?.displayName || 'Employee'}`;
 
   return (
     <Screen
-      title="Ask for support"
+      title="Support & Accommodations"
+      subtitle="Draft a workplace adjustment request. You choose what your employer sees."
       speakText="What do you need at work? Choose adjustments, set disclosure, and draft your accommodation request. Nothing is sent without your approval."
     >
+
       {overloadWarning && (
-        <Card style={{ borderColor: c.primary, borderWidth: 2, gap: 8 }}>
-          <AppText variant="h2" accessibilityRole="alert">
-            Overload early-warning detected
-          </AppText>
-          <AppText>{overloadWarning}</AppText>
+        <Card style={{ borderColor: c.warningText, borderWidth: 1.5, gap: space.sm }}>
+          <IconHeader
+            icon="warning-outline"
+            title="Overload early-warning detected"
+            subtitle={overloadWarning}
+          />
           <AppButton
             kind="secondary"
             label="Pre-fill workload redistribution request"
@@ -229,11 +241,13 @@ ${profile?.displayName || 'Employee'}`;
         </Card>
       )}
 
+      {/* Main Request Composer Card */}
       <Card>
-        <AppText variant="h2">What do you need at work?</AppText>
-        <AppText variant="muted">
-          Type or dictate what is making work hard today. You can also pick from common adjustments below.
-        </AppText>
+        <IconHeader
+          icon="hand-left-outline"
+          title="What do you need at work?"
+          subtitle="Type or dictate what is making work hard today. You can also pick from common adjustments below."
+        />
 
         <TextField
           label="Your request details"
@@ -268,12 +282,13 @@ ${profile?.displayName || 'Employee'}`;
       </Card>
 
       {safetyAlert && (
-        <Card style={{ borderColor: c.danger, borderWidth: 2 }}>
-          <AppText variant="h2" accessibilityRole="alert" style={{ color: c.danger }}>
-            Support and resources
-          </AppText>
-          <AppText>{safetyAlert.message}</AppText>
-          <View style={{ gap: 4, marginTop: 4 }}>
+        <Card style={{ borderColor: c.danger, borderWidth: 1.5 }}>
+          <IconHeader
+            icon="help-buoy-outline"
+            title="Support and resources"
+            subtitle={safetyAlert.message}
+          />
+          <View style={{ gap: space.xs, marginTop: space.xs }}>
             {safetyAlert.resources.map((res, i) => (
               <AppText key={i}>• {res}</AppText>
             ))}
@@ -283,7 +298,10 @@ ${profile?.displayName || 'Employee'}`;
 
       {draftReady && (
         <Card ai>
-          <AppText variant="h2">Review your accommodation draft</AppText>
+          <IconHeader
+            icon="document-text-outline"
+            title="Review your accommodation draft"
+          />
           <AiBadge why={`Disclosure level: ${disclosure}. Health details filtered.`} />
 
           <TextField
@@ -302,7 +320,7 @@ ${profile?.displayName || 'Employee'}`;
           />
 
           {/* Preview card: exactly what HR will receive */}
-          <Card style={{ backgroundColor: c.surface, borderWidth: 2, borderColor: c.border, gap: 6 }}>
+          <Card style={{ backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, gap: space.xs, padding: space.md }}>
             <AppText variant="muted" style={{ fontWeight: '700' }}>
               Preview (what your manager / HR will receive):
             </AppText>
@@ -345,17 +363,22 @@ ${profile?.displayName || 'Employee'}`;
       )}
 
       {sentMessage && (
-        <Card style={{ borderColor: c.primary, borderWidth: 2 }}>
-          <AppText variant="h2" accessibilityRole="alert">
-            Request sent
-          </AppText>
-          <AppText>{sentMessage}</AppText>
+        <Card style={{ borderColor: c.accent, borderWidth: 1.5 }}>
+          <IconHeader
+            icon="checkmark-circle-outline"
+            title="Request sent"
+            subtitle={sentMessage}
+          />
         </Card>
       )}
 
       {/* Message Decoder */}
       <Card>
-        <AppText variant="h2">Decode a message</AppText>
+        <IconHeader
+          icon="chatbubble-ellipses-outline"
+          title="Decode a message"
+          subtitle="Get a factual translation of unwritten workplace expectations"
+        />
         <ChipGroup
           label="Try a sample workplace message"
           options={DECODE_SAMPLE_MESSAGES.map((s) => ({ value: s.text, label: s.label }))}
@@ -371,27 +394,106 @@ ${profile?.displayName || 'Employee'}`;
         />
         <AppButton label="What do they mean?" onPress={decode} busy={decoding} disabled={!decodeMsg.trim()} />
         {decoded && (
-          <>
+          <View style={{ gap: space.xs, marginTop: space.xs }}>
             <AiBadge why={`Confidence: ${decoded.confidence}`} />
             <AppText><AppText style={{ fontWeight: '700' }}>Meaning: </AppText>{decoded.meaning}</AppText>
             <AppText><AppText style={{ fontWeight: '700' }}>Urgency: </AppText>{decoded.urgency}</AppText>
-            <AppText><AppText style={{ fontWeight: '700' }}>Suggested reply: </AppText>“{decoded.suggestedReply}”</AppText>
-          </>
+            <AppText><AppText style={{ fontWeight: '700' }}>Suggested reply: </AppText>"{decoded.suggestedReply}"</AppText>
+          </View>
         )}
       </Card>
 
-      {/* Prior Requests List */}
+      {/* Prior Requests List (Journal Cards) */}
       {requests.length > 0 && (
-        <Card>
-          <AppText variant="h2">Your requests</AppText>
-          {requests.map((r) => (
-            <AppButton
-              key={r.id}
-              kind="secondary"
-              label={`${r.category} · ${r.status}`}
-              onPress={() => router.push(`/request/${r.id}`)}
-            />
-          ))}
+        <Card style={{ gap: space.md }}>
+          <IconHeader
+            icon="book-outline"
+            title={`Your requests (${requests.length})`}
+            subtitle="View previous accommodation drafts and conversations"
+          />
+
+          <View style={{ gap: space.sm }}>
+            {requests.map((r) => {
+              const isSent = r.status === 'sent';
+              const isDraft = r.status === 'draft';
+              const statusBg = isSent ? c.successSoft : isDraft ? c.accentSoft : c.surface;
+              const statusColor = isSent ? c.successText : isDraft ? c.onAccentSoft : c.textMuted;
+              const categoryTitle = CATEGORY_LABELS[r.category] ?? 'Workplace adjustment';
+
+              return (
+                <Pressable
+                  key={r.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Accommodation request: ${categoryTitle}, status ${r.status}`}
+                  accessibilityHint="Open to view details and conversation"
+                  onPress={() => router.push(`/request/${r.id}`)}
+                  onKeyDown={(e: any) => {
+                    if (e.key === ' ' || e.key === 'Enter') {
+                      e.preventDefault?.();
+                      router.push(`/request/${r.id}`);
+                    }
+                  }}
+                  style={({ focused }: any) => ({
+                    cursor: 'pointer',
+                    outlineStyle: focused ? 'solid' : undefined,
+                    outlineWidth: focused ? 3 : 0,
+                    outlineColor: c.focus,
+                    outlineOffset: 2,
+                    borderRadius: radius.card,
+                  })}
+                >
+                  <Card
+                    style={{
+                      borderWidth: 1,
+                      borderColor: c.border,
+                      padding: space.md,
+                      gap: space.xs,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm }}>
+                      <AppText style={{ fontWeight: '700', fontSize: 16, flex: 1 }}>
+                        {categoryTitle}
+                      </AppText>
+                      <View
+                        style={{
+                          paddingHorizontal: space.sm,
+                          paddingVertical: 2,
+                          borderRadius: radius.pill,
+                          backgroundColor: statusBg,
+                          borderWidth: 1,
+                          borderColor: statusColor,
+                        }}
+                      >
+                        <AppText variant="small" style={{ color: statusColor, fontWeight: '700', textTransform: 'capitalize' }}>
+                          {r.status}
+                        </AppText>
+                      </View>
+                    </View>
+
+                    {r.draft?.subject ? (
+                      <AppText variant="muted" numberOfLines={1}>
+                        {r.draft.subject}
+                      </AppText>
+                    ) : null}
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: space.xs }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs }}>
+                        <Ionicons name="calendar-outline" size={14} color={c.textMuted} aria-hidden={true} importantForAccessibility="no" />
+                        <AppText variant="small" style={{ color: c.textMuted }}>
+                          {new Date(r.createdAt).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </AppText>
+                      </View>
+                      <Ionicons name="chevron-forward-outline" size={18} color={c.textMuted} aria-hidden={true} importantForAccessibility="no" />
+                    </View>
+                  </Card>
+                </Pressable>
+              );
+            })}
+          </View>
         </Card>
       )}
     </Screen>

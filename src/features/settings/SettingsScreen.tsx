@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { Platform, View } from 'react-native';
 import { collection, deleteDoc, getDocs } from 'firebase/firestore';
 import * as Clipboard from 'expo-clipboard';
-import { AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { AppButton, AppText, Card, ChipGroup, IconHeader, Screen, TextField } from '@/src/shared/ui';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
 import { useTheme } from '@/src/shared/theme/ThemeProvider';
 import { db, auth } from '@/src/shared/firebase';
 import { METRICS } from '@/src/shared/metrics';
+import { space } from '@/src/shared/theme/tokens';
 import type { Condition, DisclosureLevel, MetricKey } from '@/src/shared/types';
 import { useAuth } from '@/src/shared/hooks/useAuth';
 
@@ -36,7 +38,7 @@ export default function SettingsScreen() {
   const { profile, updateProfile, update, loading } = useProfile();
   const { user, isDemoUser, resetDemoData, logout } = useAuth();
   const { confirm: confirmFeedback } = useFeedback();
-  const { c } = useTheme();
+  const { c, radius } = useTheme();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
@@ -47,7 +49,7 @@ export default function SettingsScreen() {
 
   if (loading || !profile) {
     return (
-      <Screen title="Me" speakText="Loading settings.">
+      <Screen title="Me & Preferences" subtitle="Loading settings" speakText="Loading settings.">
         <AppText>Loading profile…</AppText>
       </Screen>
     );
@@ -123,12 +125,47 @@ export default function SettingsScreen() {
 
   return (
     <Screen
-      title="Me"
+      title="Me & Preferences"
+      subtitle="Profile, privacy disclosure, check-in scales and accessibility"
       speakText="Me screen: accessibility preferences, check-in scales, workplace contacts, privacy consent, and data export or deletion."
     >
+      {/* Profile Header Card */}
+      <Card style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md }}>
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: radius.pill,
+            backgroundColor: c.accentSoft,
+            borderWidth: 1.5,
+            borderColor: c.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <AppText style={{ fontSize: 20, fontWeight: '700', color: c.onAccentSoft }}>
+            {(profile.displayName || 'Me').charAt(0).toUpperCase()}
+          </AppText>
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText variant="h2" style={{ fontSize: 20, fontWeight: '700' }}>
+            {profile.displayName || 'Colleague'}
+          </AppText>
+          <AppText variant="muted">
+            {profile.jobTitle || 'Team Member'}
+          </AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+            <Ionicons name="shield-checkmark-outline" size={14} color={c.accent} aria-hidden={true} importantForAccessibility="no" />
+            <AppText variant="small" style={{ color: c.onAccentSoft, fontWeight: '600' }}>
+              Private & Local-first
+            </AppText>
+          </View>
+        </View>
+      </Card>
+
       {statusMessage && (
-        <Card style={{ borderColor: c.primary, borderWidth: 2 }}>
-          <AppText accessibilityRole="alert" style={{ fontWeight: '700' }}>
+        <Card style={{ borderColor: c.accent, borderWidth: 1.5 }}>
+          <AppText accessibilityRole="alert" style={{ fontWeight: '700', color: c.text }}>
             {statusMessage}
           </AppText>
         </Card>
@@ -136,8 +173,11 @@ export default function SettingsScreen() {
 
       {/* 1. Accessibility Preferences */}
       <Card>
-        <AppText variant="h2">Accessibility preferences</AppText>
-        <AppText variant="muted">Changes apply immediately across all screens.</AppText>
+        <IconHeader
+          icon="color-palette-outline"
+          title="Accessibility preferences"
+          subtitle="Changes apply immediately across all screens."
+        />
 
         <ChipGroup
           label="Text size"
@@ -181,10 +221,12 @@ export default function SettingsScreen() {
 
       {/* 2. My Check-in Scales */}
       <Card>
-        <AppText variant="h2">My check-in scales (2 or 3)</AppText>
-        <AppText variant="muted">
-          Tracking fewer scales keeps your daily check-in under 10 seconds.
-        </AppText>
+        <IconHeader
+          icon="options-outline"
+          title="My check-in scales (2 or 3)"
+          subtitle="Tracking fewer scales keeps your daily check-in under 10 seconds."
+        />
+
         <ChipGroup
           label={`Selected ${profile.trackedMetrics?.length ?? 0} of 3 (minimum 2)`}
           selected={profile.trackedMetrics ?? []}
@@ -204,8 +246,12 @@ export default function SettingsScreen() {
 
       {/* 3. Workplace Contacts */}
       <Card>
-        <AppText variant="h2">Workplace contacts</AppText>
-        <AppText variant="muted">Used strictly for accommodation requests you review and send.</AppText>
+        <IconHeader
+          icon="briefcase-outline"
+          title="Workplace contacts"
+          subtitle="Used strictly for accommodation requests you review and send."
+        />
+
         <TextField
           label="Preferred first name"
           value={profile.displayName}
@@ -242,10 +288,11 @@ export default function SettingsScreen() {
 
       {/* 4. Privacy, Consent & Disclosure */}
       <Card>
-        <AppText variant="h2">Privacy, consent & disclosure</AppText>
-        <AppText variant="muted">
-          You control what is stored and what AI may mention in requests to your employer.
-        </AppText>
+        <IconHeader
+          icon="lock-closed-outline"
+          title="Privacy, consent & disclosure"
+          subtitle="You control what is stored and what AI may mention in requests to your employer."
+        />
 
         <ChipGroup
           label="Consent settings"
@@ -272,11 +319,11 @@ export default function SettingsScreen() {
             label="My conditions (never shared unless you choose Specific disclosure)"
             options={CONDITIONS}
             selected={profile.conditions ?? []}
-            onToggle={(c) =>
+            onToggle={(cond) =>
               update({
-                conditions: profile.conditions?.includes(c)
-                  ? profile.conditions.filter((x) => x !== c)
-                  : [...(profile.conditions ?? []), c],
+                conditions: profile.conditions?.includes(cond)
+                  ? profile.conditions.filter((x) => x !== cond)
+                  : [...(profile.conditions ?? []), cond],
               })
             }
           />
@@ -338,17 +385,16 @@ export default function SettingsScreen() {
               onPress={() => setConfirmDelete(true)}
             />
           ) : (
-            <Card style={{ borderColor: c.danger, borderWidth: 2, gap: 8 }}>
-              <AppText variant="h2" accessibilityRole="alert" style={{ color: c.danger }}>
-                Confirm permanent deletion
-              </AppText>
-              <AppText>
-                Are you sure? This will permanently delete all your check-ins, AI summaries, day plans, and requests from Firestore. This action cannot be undone.
-              </AppText>
+            <Card style={{ borderColor: c.danger, borderWidth: 1.5, gap: space.sm }}>
+              <IconHeader
+                icon="alert-circle-outline"
+                title="Confirm permanent deletion"
+                subtitle="Are you sure? This will permanently delete all your check-ins, AI summaries, day plans, and requests from Firestore. This action cannot be undone."
+              />
               <View
                 style={{
                   flexDirection: a.fontScale > 1 ? 'column' : 'row',
-                  gap: 12,
+                  gap: space.sm,
                 }}
               >
                 <View style={{ flex: a.fontScale > 1 ? undefined : 1 }}>
