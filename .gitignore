@@ -1,13 +1,33 @@
+# Dependencies
 node_modules/
+functions/node_modules/
+
+# Build artifacts & caches
 .expo/
 dist/
 web-build/
 functions/lib/
-functions/node_modules/
+*.tsbuildinfo
+.turbo/
+.cache/
+
+# Environment variables & secrets
 .env
 .env.local
+.env.*.local
+functions/.env
 functions/.secret.local
+
+# Logs
 *.log
-.DS_Store
 firebase-debug.log
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+*Zone.Identifier*
+.vscode/
+.idea/
+
+# Firebase
 .firebase/

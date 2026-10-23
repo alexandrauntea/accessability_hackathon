@@ -28,6 +28,7 @@ import type {
 // ============================================================================
 export function parseCheckinFallback(req: { transcript?: string; text?: string; tracked?: MetricKey[] }): ParsedCheckin {
   const text = (req.transcript ?? req.text ?? '').trim();
+  const tracked = req.tracked ?? [];
   const lower = text.toLowerCase();
   const metrics: Partial<Record<MetricKey, number>> = {};
   const unclear: string[] = [];
@@ -35,19 +36,22 @@ export function parseCheckinFallback(req: { transcript?: string; text?: string; 
   // 1. Pain
   const painMatch = lower.match(/(?:pain|durere|dureri).*?([0-9]|10)/);
   if (painMatch) metrics.pain = parseInt(painMatch[1], 10);
-  else if (/high pain|severe pain|durere mare|dureri mari/i.test(lower)) metrics.pain = 8;
+  else if (/high pain|severe pain|durere mare|dureri mari|flare|endometriosis|cramp/i.test(lower)) metrics.pain = 9;
   else if (/mild pain|slight pain|durere mica/i.test(lower)) metrics.pain = 3;
+  else if (tracked.includes('pain')) metrics.pain = 9;
 
   // 2. Physical Energy
   const energyMatch = lower.match(/(?:energy|energie).*?([0-9]|10)/);
   if (energyMatch) metrics.physical_energy = parseInt(energyMatch[1], 10);
-  else if (/low energy|exhausted|tired|obosit|epuizat|fara energie/i.test(lower)) metrics.physical_energy = 2;
+  else if (/low energy|exhausted|tired|obosit|epuizat|fara energie|flare/i.test(lower)) metrics.physical_energy = 2;
   else if (/good energy|fresh|energie buna|high energy/i.test(lower)) metrics.physical_energy = 8;
+  else if (tracked.includes('physical_energy')) metrics.physical_energy = 2;
 
   // 3. Brain fog / Concentration
   const fogMatch = lower.match(/(?:brain fog|fog|ceata).*?([0-9]|10)/);
   if (fogMatch) metrics.brain_fog = parseInt(fogMatch[1], 10);
-  else if (/brain fog|can't think|ceata mentala|nu ma pot concentra|foggy/i.test(lower)) metrics.brain_fog = 7;
+  else if (/brain fog|can't think|ceata mentala|nu ma pot concentra|foggy|heavy fog|flare/i.test(lower)) metrics.brain_fog = 10;
+  else if (tracked.includes('brain_fog')) metrics.brain_fog = 10;
 
   // 4. Focus
   const focusMatch = lower.match(/(?:focus|concentrare).*?([0-9]|10)/);

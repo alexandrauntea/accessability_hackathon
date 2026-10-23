@@ -12,13 +12,29 @@ export function useVoiceInput(onText: (t: string) => void) {
 
   const start = useCallback(() => {
     if (!SR) return;
-    const r = new SR();
-    r.lang = 'en-US'; r.interimResults = false; r.maxAlternatives = 1;
-    r.onresult = (e: any) => onText(e.results[0][0].transcript);
-    r.onend = () => setListening(false);
-    r.onerror = () => setListening(false);
-    rec.current = r; setListening(true); r.start();
+    try {
+      const r = new SR();
+      r.lang = 'en-US';
+      r.interimResults = false;
+      r.maxAlternatives = 1;
+      r.onresult = (e: any) => {
+        const spoken = e.results?.[0]?.[0]?.transcript;
+        if (spoken) onText(spoken);
+      };
+      r.onend = () => setListening(false);
+      r.onerror = () => setListening(false);
+      rec.current = r;
+      setListening(true);
+      r.start();
+    } catch {
+      setListening(false);
+    }
   }, [SR, onText]);
-  const stop = useCallback(() => { rec.current?.stop(); setListening(false); }, []);
+
+  const stop = useCallback(() => {
+    rec.current?.stop();
+    setListening(false);
+  }, []);
+
   return { supported: !!SR, listening, start, stop };
 }
