@@ -34,13 +34,15 @@ const SUBCOLS = ['checkins', 'summaries', 'dayPlans', 'requests'];
 
 export default function SettingsScreen() {
   const { profile, updateProfile, update, loading } = useProfile();
-  const { logout } = useAuth();
+  const { user, isDemoUser, resetDemoData, logout } = useAuth();
   const { confirm: confirmFeedback } = useFeedback();
   const { c } = useTheme();
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busyDelete, setBusyDelete] = useState(false);
   const [busyExport, setBusyExport] = useState(false);
+  const [busyReset, setBusyReset] = useState(false);
+  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   if (loading || !profile) {
@@ -292,6 +294,33 @@ export default function SettingsScreen() {
         />
 
         <View style={{ gap: 8, marginTop: 8 }}>
+          {isDemoUser && (
+            <>
+              <AppButton
+                kind="secondary"
+                label="Reset demo data (Ioana Popescu)"
+                hint="Restores fresh Day 1 flare state with 6-week history"
+                onPress={async () => {
+                  setBusyReset(true);
+                  setResetFeedback(null);
+                  try {
+                    await resetDemoData();
+                    setResetFeedback('Reset Ioana Popescu demo account successfully.');
+                  } catch {
+                    setResetFeedback('Failed to reset demo data.');
+                  } finally {
+                    setBusyReset(false);
+                  }
+                }}
+                busy={busyReset}
+              />
+              {resetFeedback && (
+                <AppText style={{ fontWeight: '700' }} accessibilityLiveRegion="polite">
+                  {resetFeedback}
+                </AppText>
+              )}
+            </>
+          )}
           <AppButton
             kind="secondary"
             label="Download my data (JSON)"

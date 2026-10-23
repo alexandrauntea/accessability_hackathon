@@ -1,3 +1,4 @@
+import { ErrorBoundary } from './ErrorBoundary';
 import React, { useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +23,7 @@ export function Screen({ title, speakText, children }: { title: string; speakTex
           <AppText variant="title" style={{ flex: 1 }}>{title}</AppText>
           {speakText ? <SpeakButton text={speakText} /> : null}
         </View>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </ScrollView>
     </SafeAreaView>
   );

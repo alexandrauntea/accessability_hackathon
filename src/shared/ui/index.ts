@@ -7,3 +7,5 @@ export { AiBadge } from './AiBadge';
 export { ScaleInput } from './ScaleInput';
 export { TextField } from './TextField';
 export { ChipGroup } from './ChipGroup';
+
+export { ErrorBoundary } from './ErrorBoundary';
