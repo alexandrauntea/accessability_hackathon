@@ -60,7 +60,7 @@ export function ChipGroup<T extends string>({
                   fontWeight: on ? '700' : '400',
                 }}
               >
-                {on ? '✓ ' : ''}
+                
                 {o.label}
               </AppText>
             </Pressable>

@@ -1,4 +1,4 @@
-﻿// Owner: Alina. Support Screen:
+// Owner: Alina. Support Screen:
 // "What do you need at work?" (text or voice via useVoiceInput)
 // + category-specific chips (async meetings, written instructions, flexible hours, quiet space, remote day, redistribute tasks)
 // + 3 disclosure buttons -> "Draft my request" -> editable draft

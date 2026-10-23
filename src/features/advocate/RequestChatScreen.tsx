@@ -1,4 +1,4 @@
-﻿// Owner: Alina. Clarifying chat -> editable draft -> explicit confirmation -> send.
+// Owner: Alina. Clarifying chat -> editable draft -> explicit confirmation -> send.
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
