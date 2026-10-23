@@ -5,10 +5,29 @@ let runtimeForcedAiMode: 'live' | 'fallback' | null = null;
 
 export function setForcedAiMode(mode: 'live' | 'fallback' | null) {
   runtimeForcedAiMode = mode;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      if (mode) {
+        window.localStorage.setItem('VIBECHECK_AI_MODE', mode);
+      } else {
+        window.localStorage.removeItem('VIBECHECK_AI_MODE');
+      }
+    }
+  } catch {
+    // non-blocking
+  }
 }
 
 export function getEffectiveAiMode(): 'live' | 'fallback' {
   if (runtimeForcedAiMode) return runtimeForcedAiMode;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = window.localStorage.getItem('VIBECHECK_AI_MODE');
+      if (stored === 'fallback' || stored === 'live') return stored;
+    }
+  } catch {
+    // non-blocking
+  }
   return (process.env.EXPO_PUBLIC_AI_MODE ?? 'live') === 'fallback' ? 'fallback' : 'live';
 }
 
