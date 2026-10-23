@@ -5,13 +5,13 @@ import { useSpeech } from '../hooks/useSpeech';
 import { useTheme } from '../theme/ThemeProvider';
 import { MIN_TOUCH } from '../theme/tokens';
 
-export function SpeakButton({ text }: { text: string }) {
+export function SpeakButton({ text, label }: { text: string; label?: string }) {
   const { speak, speaking } = useSpeech();
   const { c, radius } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={speaking ? 'Stop reading' : 'Read screen aloud'}
+      accessibilityLabel={label ?? (speaking ? 'Stop reading' : 'Read screen aloud')}
       accessibilityState={{ busy: speaking }}
       onPress={() => speak(text)}
       onKeyDown={(e: any) => {

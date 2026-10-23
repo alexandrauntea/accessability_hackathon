@@ -151,3 +151,22 @@ export const radius = {
 
 export const MIN_TOUCH = 48; // WCAG 2.5.5 target size
 export const baseFont = { body: 18, small: 16, title: 26, h2: 21 }; // never below 16
+// Responsive layout breakpoints, max widths, and padding
+export const layout = {
+  breakpoints: {
+    tablet: 768,
+    grid: 1024,
+    desktop: 1200,
+  },
+  maxWidth: {
+    tablet: 960,
+    desktop: 1200,
+    reading: 720,
+  },
+  padding: {
+    phoneNarrow: 16,
+    phone: 24,
+    tablet: 32,
+    desktop: 48,
+  },
+};
