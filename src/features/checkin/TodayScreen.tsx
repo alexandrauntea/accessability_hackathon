@@ -18,7 +18,6 @@ export default function TodayScreen() {
   const [today, setToday] = useState<Checkin | null>(null);
   const [summary, setSummary] = useState<StateSummary | null>(null);
   const [signal, setSignal] = useState<string | null>(null);
-  const [totalCheckins, setTotalCheckins] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +25,6 @@ export default function TodayScreen() {
     getTodayCheckin().then(setToday).catch(() => {});
     listCheckins(14)
       .then((recent) => {
-        setTotalCheckins(recent.length);
         const computed = computeStats(recent, profile?.trackedMetrics ?? []);
         setSignal(overloadSignal(computed));
       })
@@ -68,19 +66,6 @@ export default function TodayScreen() {
 
   return (
     <Screen title={profile?.displayName ? `Today, ${profile.displayName}` : 'Today'} speakText={spoken}>
-      <Card>
-        <AppText variant="h2">How VibeCheck works (1 minute)</AppText>
-        <AppText>
-          Take a quick 1-minute tour of your 10-second check-in, daily capacity score, and privacy.
-        </AppText>
-        <AppButton
-          kind="secondary"
-          label="View tutorial"
-          hint="Open the 1-minute interactive tutorial"
-          onPress={() => router.push('/tutorial')}
-        />
-      </Card>
-
       {!today ? (
         <Card>
           <AppText variant="h2">Daily check-in: about 10 seconds</AppText>
