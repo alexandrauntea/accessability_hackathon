@@ -5,8 +5,17 @@ import { useTheme } from '../theme/ThemeProvider';
 import { MIN_TOUCH, space } from '../theme/tokens';
 
 /** Multi-select chips; selected state is announced, not only shown by colour. */
-export function ChipGroup<T extends string>({ label, options, selected, onToggle }:
-  { label: string; options: { value: T; label: string }[]; selected: T[]; onToggle: (v: T) => void }) {
+export function ChipGroup<T extends string>({
+  label,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  selected: T[];
+  onToggle: (v: T) => void;
+}) {
   const { c, radius } = useTheme();
   return (
     <View accessibilityRole="list" accessibilityLabel={label} style={{ gap: space.xs }}>
@@ -34,18 +43,25 @@ export function ChipGroup<T extends string>({ label, options, selected, onToggle
                 paddingVertical: space.sm,
                 justifyContent: 'center',
                 alignItems: 'center',
-                borderRadius: radius.sm,
-                borderWidth: 2,
-                borderColor: on ? c.primary : c.border,
-                backgroundColor: on ? c.primary : 'transparent',
+                borderRadius: radius.md,
+                borderWidth: 1.5,
+                borderColor: on ? c.accent : c.border,
+                backgroundColor: on ? c.accentSoft : c.surface,
                 cursor: 'pointer',
                 outlineStyle: s.focused ? 'solid' : undefined,
                 outlineWidth: s.focused ? 3 : 0,
                 outlineColor: c.focus,
                 outlineOffset: 2,
-              } as any)}>
-              <AppText style={{ color: on ? c.onPrimary : c.text, fontWeight: on ? '700' : '400' }}>
-                {on ? '✓ ' : ''}{o.label}
+              } as any)}
+            >
+              <AppText
+                style={{
+                  color: on ? c.onAccentSoft : c.text,
+                  fontWeight: on ? '700' : '400',
+                }}
+              >
+                {on ? '✓ ' : ''}
+                {o.label}
               </AppText>
             </Pressable>
           );
