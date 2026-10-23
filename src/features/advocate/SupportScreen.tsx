@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { AiBadge, AppButton, AppText, Card, ChipGroup, IconHeader, Screen, StatCard, TextField } from '@/src/shared/ui';
+import { AiBadge, AppButton, AppText, Card, ChipGroup, IconHeader, Screen, TextField } from '@/src/shared/ui';
 import { advocateChat, decodeMessage, sendRequest } from '@/src/shared/api';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
@@ -202,33 +202,9 @@ ${profile?.displayName || 'Employee'}`;
   return (
     <Screen
       title="Support & Accommodations"
-      subtitle="Draft workplace adjustments with guaranteed medical privacy"
+      subtitle="Draft a workplace adjustment request. You choose what your employer sees."
       speakText="What do you need at work? Choose adjustments, set disclosure, and draft your accommodation request. Nothing is sent without your approval."
     >
-      {/* Row of small stat cards (real computed data) */}
-      <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
-        <StatCard
-          icon="file-tray-full-outline"
-          value={requests.length}
-          label="Requests"
-          badgeText={requests.length === 0 ? 'Ready' : `${requests.length} total`}
-          badgeKind="accent"
-        />
-        <StatCard
-          icon="shield-checkmark-outline"
-          value={disclosure === 'none' ? 'Private' : disclosure === 'general' ? 'General' : 'Specific'}
-          label="Disclosure"
-          badgeText="Protected"
-          badgeKind="accent"
-        />
-        <StatCard
-          icon="pulse-outline"
-          value={overloadWarning ? 'Alert' : 'Steady'}
-          label="Pacing"
-          badgeText={overloadWarning ? 'Overload' : 'Sustainable'}
-          badgeKind={overloadWarning ? 'warning' : 'success'}
-        />
-      </View>
 
       {overloadWarning && (
         <Card style={{ borderColor: c.warningText, borderWidth: 1.5, gap: space.sm }}>
