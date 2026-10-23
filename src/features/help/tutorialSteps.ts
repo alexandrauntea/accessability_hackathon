@@ -1,4 +1,4 @@
-// Owner: Andreea. In-app tutorial content: 6 steps, plain language, zero emojis.
+// Owner: Andreea. In-app tutorial content: 7 steps, plain language, zero emojis.
 export interface TutorialStep {
   step: number;
   title: string;
@@ -27,6 +27,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     step: 3,
+    title: 'Keyboard access: Tab and Enter',
+    sentences: [
+      'VibeCheck is fully usable with only a keyboard, with no mouse or touch screen required.',
+      'Press Tab to move focus forward to the next button, scale, or field, and Shift + Tab to move backward.',
+      'Press Space or Enter to select scale numbers, activate buttons, or close pop-up instructions.',
+      'A high-contrast focus ring always shows which element is currently selected.',
+    ],
+  },
+  {
+    step: 4,
     title: 'Today and Insights',
     sentences: [
       'Track your day and see your capacity patterns over time.',
@@ -35,7 +45,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     ],
   },
   {
-    step: 4,
+    step: 5,
     title: 'My day',
     sentences: [
       'Your daily plan adapts to your capacity, with a clear reason for every proposed change.',
@@ -44,7 +54,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     ],
   },
   {
-    step: 5,
+    step: 6,
     title: 'Speak for me',
     sentences: [
       'When speaking in meetings is difficult or stressful, use Speak for me.',
@@ -53,7 +63,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     ],
   },
   {
-    step: 6,
+    step: 7,
     title: 'Support and privacy',
     sentences: [
       'The app drafts accommodation and adjustment requests when work feels overwhelming.',

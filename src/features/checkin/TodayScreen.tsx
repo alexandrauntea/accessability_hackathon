@@ -9,6 +9,7 @@ import { METRICS, CAPACITY_ANCHORS, anchorFor } from '@/src/shared/metrics';
 import { computeStats, overloadSignal } from '@/src/features/insights/stats';
 import { getTodayCheckin, listCheckins } from './checkinRepo';
 import { DemoPersonaPicker } from './seedDemo';
+import { TutorialModal } from '@/src/features/help/TutorialScreen';
 import type { Checkin, MetricKey, StateSummary } from '@/src/shared/types';
 
 const DEMO_TOOLS = __DEV__ || process.env.EXPO_PUBLIC_DEMO_TOOLS === 'true';
@@ -18,6 +19,7 @@ export default function TodayScreen() {
   const [today, setToday] = useState<Checkin | null>(null);
   const [summary, setSummary] = useState<StateSummary | null>(null);
   const [signal, setSignal] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,9 +133,11 @@ export default function TodayScreen() {
       <AppButton
         kind="secondary"
         label="How to use VibeCheck"
-        hint="Open the 1-minute guide to VibeCheck"
-        onPress={() => router.push('/tutorial')}
+        hint="Open instructions pop-up with tutorial steps"
+        onPress={() => setShowTutorial(true)}
       />
+
+      <TutorialModal visible={showTutorial} onClose={() => setShowTutorial(false)} />
 
       {DEMO_TOOLS ? (
         <DemoPersonaPicker
