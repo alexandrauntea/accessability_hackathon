@@ -26,7 +26,7 @@ export function AiBadge({ why }: { why?: string }) {
         borderColor: c.border,
       }}
     >
-      <Ionicons name="sparkles-outline" size={14} color={c.accent} />
+      <Ionicons name="sparkles-outline" size={14} color={c.accent} aria-hidden={true} importantForAccessibility="no" />
       <AppText variant="small" style={{ color: c.onAccentSoft, fontWeight: '700' }}>
         AI-generated{why ? ` · ${why}` : ''}
       </AppText>

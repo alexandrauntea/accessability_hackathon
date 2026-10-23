@@ -37,7 +37,7 @@ export function SpeakButton({ text }: { text: string }) {
         outlineOffset: 2,
       } as any)}
     >
-      <Ionicons name={speaking ? 'volume-mute-outline' : 'volume-high-outline'} size={22} color={c.accent} />
+      <Ionicons name={speaking ? 'volume-mute-outline' : 'volume-high-outline'} size={22} color={c.accent} aria-hidden={true} importantForAccessibility="no" />
     </Pressable>
   );
 }
