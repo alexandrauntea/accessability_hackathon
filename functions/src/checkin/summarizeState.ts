@@ -4,6 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY, MODEL } from '../lib/ai';
 import { requireAuth, REGION } from '../lib/auth';
+import { summarizeStateFallback } from '../lib/aiFallbacks';
 import type { Checkin, StateSummary, Stats } from '../lib/types';
 
 const OutSchema = z.object({
@@ -55,40 +56,6 @@ export function validateCitedNumbers(cited: number[], valid: number[], tolerance
   return cited.every((c) => valid.some((v) => Math.abs(c - v) <= tolerance));
 }
 
-export function generateFallbackSummary(date: string, stats: Stats): StateSummary {
-  const worstDay = [...(stats.byWeekday ?? [])].filter((d) => d.n > 0).sort((a, b) => a.avgCapacity - b.avgCapacity)[0];
-  const bestDay = [...(stats.byWeekday ?? [])].filter((d) => d.n > 0).sort((a, b) => b.avgCapacity - a.avgCapacity)[0];
-  const patterns: string[] = [];
-
-  if (worstDay && bestDay && worstDay.weekday !== bestDay.weekday) {
-    patterns.push(`Capacity averages ${worstDay.avgCapacity} on ${worstDay.label}s versus ${bestDay.avgCapacity} on ${bestDay.label}s.`);
-  }
-  if (stats.last7 && stats.prev7) {
-    patterns.push(`Average capacity over the last 7 workdays was ${stats.last7.avgCapacity} (compared to ${stats.prev7.avgCapacity} previously).`);
-  }
-
-  const suggestions = [
-    'Place demanding tasks during your higher-capacity days.',
-    'Keep meetings shorter and request asynchronous updates on lower-energy days.',
-  ];
-
-  let overloadSignal: string | undefined;
-  if (stats.last7 && stats.last7.lateNights >= 4 && stats.last7.lowCapacityDays >= 2) {
-    overloadSignal = `You worked after 8 pm on ${stats.last7.lateNights} of the last 7 workdays and reported low capacity ${stats.last7.lowCapacityDays} times. Consider asking to redistribute tasks.`;
-  }
-
-  return {
-    date,
-    headline: `Recent capacity averages ${stats.last7?.avgCapacity ?? 5} of 10.`,
-    summary: `Over ${stats.days} recorded check-ins, your daily capacity shows identifiable weekly patterns. Work pacing can be aligned with your predictable energy rhythms.`,
-    patterns,
-    suggestions,
-    overloadSignal,
-    generatedBy: 'ai',
-    model: 'fallback-deterministic',
-  };
-}
-
 export const summarizeState = onCall(
   { region: REGION, secrets: [GEMINI_API_KEY], maxInstances: 5 },
   async (req): Promise<StateSummary> => {
@@ -101,12 +68,11 @@ export const summarizeState = onCall(
     };
 
     if (!stats) {
-      return generateFallbackSummary(date || new Date().toISOString().slice(0, 10), {} as Stats);
+      return summarizeStateFallback({ date: date || new Date().toISOString().slice(0, 10), stats: {} as Stats });
     }
 
     const validNums = extractAllNumbers(stats);
 
-    // Send only the numerical stats to the LLM (no raw free text, no medical condition names)
     const prompt = `Language: ${simpleLanguage ? 'easy-to-read English, short sentences' : 'clear plain English'}.
 Stats (computed in code, trust only these numbers):
 ${JSON.stringify({
@@ -119,44 +85,40 @@ ${JSON.stringify({
 
 Return JSON: { "headline": string, "summary": string, "patterns": string[], "suggestions": string[], "overloadSignal"?: string, "citedNumbers": number[] }`;
 
-    let resultSummary: StateSummary;
-    try {
-      const out = await generateJson({
-        system: SYSTEM,
-        prompt,
-        schema: OutSchema,
-        temperature: 0.2,
-      });
+    const out = await generateJson({
+      fnName: 'summarizeState',
+      system: SYSTEM,
+      prompt,
+      schema: OutSchema,
+      temperature: 0.2,
+      fallback: () => summarizeStateFallback({ date, stats, recent, simpleLanguage }),
+    });
 
-      // Grounding check: ensure every cited number exists in the input
-      const isValid = validateCitedNumbers(out.citedNumbers ?? [], validNums);
-      if (isValid) {
-        resultSummary = {
-          date,
-          headline: out.headline,
-          summary: out.summary,
-          patterns: out.patterns ?? [],
-          suggestions: out.suggestions ?? [],
-          overloadSignal: out.overloadSignal,
-          generatedBy: 'ai',
-          model: MODEL,
-        };
-      } else {
-        // Fallback to deterministic code summary if hallucinated numbers detected
-        resultSummary = generateFallbackSummary(date, stats);
-      }
-    } catch {
-      // Fallback if AI call failed
-      resultSummary = generateFallbackSummary(date, stats);
+    let resultSummary: StateSummary;
+    const isValid = validateCitedNumbers(out.citedNumbers ?? [], validNums);
+    if (isValid && out.headline) {
+      resultSummary = {
+        date,
+        headline: out.headline,
+        summary: out.summary,
+        patterns: out.patterns ?? [],
+        suggestions: out.suggestions ?? [],
+        overloadSignal: out.overloadSignal,
+        generatedBy: 'ai',
+        model: MODEL,
+      };
+    } else {
+      resultSummary = summarizeStateFallback({ date, stats, recent, simpleLanguage });
     }
 
-    // Persist to Firestore server-side (only Cloud Functions have write permission under owner-only rules)
     try {
       await getFirestore().doc(`users/${uid}/summaries/${date}`).set(resultSummary);
     } catch {
-      // non-blocking for response
+      // non-blocking
     }
 
     return resultSummary;
   }
 );
+
+export const generateFallbackSummary = (date: string, stats: Stats) => summarizeStateFallback({ date, stats });

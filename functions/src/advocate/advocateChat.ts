@@ -1,4 +1,3 @@
-import { logger } from 'firebase-functions';
 // Owner: Alina. Clarify (max 3 questions) -> draft. Recipients + disclosure come from the PROFILE, never from the model.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -6,6 +5,7 @@ import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY } from '../lib/ai';
 import { requireUid, REGION } from '../lib/auth';
 import { crisisCheck, enforceDisclosure } from '../lib/safety';
+import { advocateChatModelFallback } from '../lib/aiFallbacks';
 import type { AccommodationRequest, AdvocateReply, ChatMessage, UserProfile } from '../lib/types';
 
 const MAX_QUESTIONS = 3;
@@ -61,43 +61,14 @@ Questions already asked: ${asked} of ${MAX_QUESTIONS}. ${asked >= MAX_QUESTIONS 
 Conversation: ${JSON.stringify(messages.map((m) => ({ role: m.role, text: m.text })))}
 Return JSON, either { "type":"question","question","why" } or { "type":"draft","category","subject","body","notes","recipients" }.`;
 
-  let out: z.infer<typeof Out>;
-  try {
-    out = await generateJson({ system: SYSTEM, prompt, schema: Out, temperature: 0.5 });
-  } catch (err: any) {
-    logger.warn('AI unavailable for advocateChat, using rule-based accommodation assistant', { error: String(err?.message ?? err) });
-    if (asked < 2 && message.trim().length < 35) {
-      out = {
-        type: 'question',
-        question: 'Could you share what concrete adjustments would support you best right now (e.g. flexible hours, working remotely, quiet workspace, or redistributing specific tasks)?',
-        why: 'Clarifies exact accommodation needs before preparing the request.',
-      };
-    } else {
-      const conditionMention = p.disclosure === 'specific' && p.conditions?.length
-        ? `related to ${p.conditions.join(', ')}`
-        : p.disclosure === 'general'
-        ? 'related to a health condition'
-        : 'due to personal reasons';
-      out = {
-        type: 'draft',
-        category: r.category || 'workload',
-        subject: `Request for workplace adjustment — ${p.displayName || 'Support Request'}`,
-        body: `Dear ${p.managerName || 'Manager'},
-
-I am writing to request a temporary workplace adjustment ${conditionMention}. Specifically, I would benefit from: ${message.trim()}.
-
-These adjustments will allow me to maintain high-quality deliverables while managing my current capacity. I would welcome the opportunity to discuss this briefly.
-
-Best regards,
-${p.displayName || 'Employee'}`,
-        notes: [
-          'You do not have to share a diagnosis with your team unless you choose to.',
-          'Focus on how this adjustment helps keep work deliverables on track.',
-        ],
-        recipients: 'manager',
-      };
-    }
-  }
+  const out = await generateJson({
+    fnName: 'advocateChat',
+    system: SYSTEM,
+    prompt,
+    schema: Out,
+    temperature: 0.5,
+    fallback: () => advocateChatModelFallback({ requestId, message, category: r.category, profile: p }),
+  });
 
   if (out.type === 'question') {
     await ref.update({ messages: [...messages, { role: 'assistant', text: out.question, at: now }], status: 'clarifying' });

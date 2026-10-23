@@ -152,10 +152,17 @@ User's request in their words: """${userText}"""
 Draft a request for workplace accommodation following the schema.`;
 
     draftResult = await generateJson({
+      fnName: 'draftRequest',
       system: SYSTEM,
       prompt,
       schema: DraftOutputSchema,
       temperature: 0.4,
+      fallback: () => createMockDraft({
+        category: input.category,
+        text: userText,
+        disclosure,
+        capacityScore,
+      }),
     });
   } catch (err) {
     draftResult = createMockDraft({
