@@ -138,20 +138,68 @@ export default function SpeakForMeScreen() {
   async function compose(mode: 'clarify' | 'calm' | 'status_update') {
     setBusy(true);
     try {
-      const res = await composeContribution({
-        draft,
-        meetingTitle: meeting,
-        mode,
-        checkin: checkin ? { capacityScore: checkin.capacityScore } : null,
-        tasks: tasks.map(({ id, title, status }) => ({ id, title, status })),
-      });
+      let res: MeetingContribution;
+      try {
+        res = await composeContribution({
+          draft,
+          meetingTitle: meeting,
+          mode,
+          checkin: checkin ? { capacityScore: checkin.capacityScore } : null,
+          tasks: tasks.map(({ id, title, status }) => ({ id, title, status })),
+        });
+      } catch (callErr) {
+        // Resilient client-side fallback if server/AI quota unavailable
+        if (mode === 'status_update') {
+          const active = tasks.filter((t) => t.status !== 'done');
+          const inProg = active.filter((t) => t.status === 'in_progress').map((t) => t.title).join(', ');
+          const blocked = active.filter((t) => t.status === 'blocked').map((t) => t.title).join(', ');
+          let text = 'For my update today: ';
+          if (inProg) text += `I am currently progressing on ${inProg}. `;
+          if (blocked) text += `I need alignment on ${blocked} to unblock next steps. `;
+          if (!inProg && !blocked) text += 'My assigned tasks are on track and I am ready for the next priorities.';
+          res = {
+            text: text.slice(0, 400),
+            why: 'Structured directly from your active tasks (in progress and blocked).',
+            spoken: text.slice(0, 400),
+            chat: text.slice(0, 400),
+          };
+        } else if (mode === 'calm') {
+          const text = draft.trim()
+            ? `Regarding our discussion on ${meeting || 'the project'}: I wanted to check in calmly to make sure we are aligned on the priorities and deliverables. ${draft}`
+            : `Hi team, I would like to check in on our current progress and ensure we are aligned on next steps.`;
+          res = {
+            text: text.slice(0, 400),
+            why: 'Reframed calmly to communicate priorities and reduce anxiety.',
+            spoken: text.slice(0, 400),
+            chat: text.slice(0, 400),
+          };
+        } else {
+          let text = draft.trim();
+          if (!text) {
+            text = 'I agree with this direction and will follow up with the completed items by the end of today.';
+          } else {
+            const clean = text.replace(/^[a-z]/, (c) => c.toUpperCase());
+            if (/nu cred|i don't think|maybe|cred ca|not sure/i.test(clean)) {
+              text = `Regarding this point: ${clean.replace(/^[., ]+/, '')} I would recommend that we align on these details before proceeding.`;
+            } else if (/help|ajutor|blocat|blocked|issue|problema/i.test(clean)) {
+              text = `I wanted to raise a key item: ${clean}. Could we coordinate for a few minutes to align on the next steps?`;
+            } else {
+              text = `Regarding ${meeting || 'our discussion'}: ${clean}${clean.endsWith('.') ? '' : '.'} I will ensure this is tracked with the team.`;
+            }
+          }
+          res = {
+            text: text.slice(0, 400),
+            why: 'Clarified into a direct, professional statement suitable for meetings.',
+            spoken: text.slice(0, 400),
+            chat: text.slice(0, 400),
+          };
+        }
+      }
       setOut(res);
       if (res.text) {
         setDraft(res.text); // Keeps text editable before Speak/Copy
       }
       await confirm();
-    } catch {
-      // Friendly fallback: text remains directly usable without AI
     } finally {
       setBusy(false);
     }

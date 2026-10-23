@@ -52,7 +52,46 @@ export default function CheckinScreen() {
       setFromVoice(Object.keys(p.metrics) as MetricKey[]);
       setStatusMessage('Scales updated from your speech. Please review and confirm.');
     } catch {
-      setError('Could not parse voice input right now. Please rate the scales below manually.');
+      // Local fallback parser if cloud function fails or quota reached
+      const lower = text.toLowerCase();
+      const localMetrics: Partial<Record<MetricKey, number>> = {};
+      if (tracked.includes('pain')) {
+        const m = lower.match(/(?:pain|durere).*?([0-9]|10)/);
+        if (m) localMetrics.pain = parseInt(m[1], 10);
+        else if (/high pain|severe pain|durere mare|dureri mari/i.test(lower)) localMetrics.pain = 8;
+        else if (/mild pain|durere mica/i.test(lower)) localMetrics.pain = 3;
+      }
+      if (tracked.includes('physical_energy')) {
+        const m = lower.match(/(?:energy|energie).*?([0-9]|10)/);
+        if (m) localMetrics.physical_energy = parseInt(m[1], 10);
+        else if (/low energy|exhausted|obosit|fara energie/i.test(lower)) localMetrics.physical_energy = 2;
+        else if (/good energy|fresh|energie buna/i.test(lower)) localMetrics.physical_energy = 8;
+      }
+      if (tracked.includes('brain_fog')) {
+        const m = lower.match(/(?:brain fog|fog|ceata).*?([0-9]|10)/);
+        if (m) localMetrics.brain_fog = parseInt(m[1], 10);
+        else if (/brain fog|can't think|ceata/i.test(lower)) localMetrics.brain_fog = 7;
+      }
+      if (tracked.includes('focus')) {
+        const m = lower.match(/(?:focus|concentrare).*?([0-9]|10)/);
+        if (m) localMetrics.focus = parseInt(m[1], 10);
+        else if (/can't focus|nu ma pot concentra/i.test(lower)) localMetrics.focus = 3;
+        else if (/good focus/i.test(lower)) localMetrics.focus = 8;
+      }
+      if (tracked.includes('anxiety')) {
+        const m = lower.match(/(?:anxiety|anxietate).*?([0-9]|10)/);
+        if (m) localMetrics.anxiety = parseInt(m[1], 10);
+        else if (/anxious|panicked/i.test(lower)) localMetrics.anxiety = 8;
+      }
+
+      if (Object.keys(localMetrics).length > 0) {
+        setValues((prev) => ({ ...prev, ...localMetrics }));
+        setFromVoice(Object.keys(localMetrics) as MetricKey[]);
+        setStatusMessage('Scales updated from your speech. Please review and confirm.');
+        setError(null);
+      } else {
+        setError('Could not parse voice input right now. Please rate the scales below manually.');
+      }
     } finally {
       setBusy(false);
     }

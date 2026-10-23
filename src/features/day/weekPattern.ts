@@ -41,9 +41,9 @@ export function analyzeWeekPattern(
     .filter((s): s is number => typeof s === 'number');
   const avgOverall = avg(allScores);
 
-  // Mark weekdays with avgCapacity <= avgOverall - 1.5 and at least 3 check-ins
+  // Mark weekdays with avgCapacity <= avgOverall - 1.0 (or below 4.5 for chronic profiles) and at least 3 check-ins
   const lowDays = stats.byWeekday.filter(
-    (w) => w.n >= 3 && w.avgCapacity <= avgOverall - 1.5
+    (w) => w.n >= 3 && (w.avgCapacity <= avgOverall - 1.0 || (avgOverall <= 5.5 && w.avgCapacity <= 4.0))
   );
 
   let lowestDay: WeekPatternAnalysis['lowestDay'] | undefined;

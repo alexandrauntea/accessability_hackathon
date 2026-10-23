@@ -137,12 +137,53 @@ export default function DayScreen() {
       const endMs = Date.parse(e.end);
       const durationMin = !isNaN(startMs) && !isNaN(endMs) ? Math.round((endMs - startMs) / 60000) : 30;
 
-      const res = await prepareMeeting({
-        meetingTitle: e.title,
-        durationMin,
-        attendeesCount: e.attendees?.length ?? 3,
-        tasks: tasks.map(({ id, title }) => ({ id, title })),
-      });
+      let res: MeetingPrep;
+      try {
+        res = await prepareMeeting({
+          meetingTitle: e.title,
+          durationMin,
+          attendeesCount: e.attendees?.length ?? 3,
+          tasks: tasks.map(({ id, title }) => ({ id, title })),
+        });
+      } catch (callErr) {
+        // Resilient deterministic client fallback if cloud function is offline or quota exceeded
+        const isStandup = /stand-?up|daily|sync/i.test(e.title);
+        const isSprint = /sprint|planning|retro/i.test(e.title);
+        const isOneOnOne = /1:1|manager|lead/i.test(e.title);
+        res = {
+          purpose: isStandup
+            ? 'Provide quick visibility on what was completed, active priorities, and any blockers.'
+            : isSprint
+            ? 'Review backlog scope, estimate upcoming effort, and agree on sprint deliverables.'
+            : isOneOnOne
+            ? 'Align on weekly priorities, project trajectory, and feedback with your lead.'
+            : `Review progress and coordinate next steps for ${e.title}.`,
+          likelyQuestions: isStandup
+            ? ['What did you work on yesterday?', 'What is your main focus for today?', 'Is anything blocking your progress?']
+            : isSprint
+            ? ['Do you have capacity to take on this item?', 'Are the requirements clear for your assigned tasks?', 'Do you foresee dependencies on other teams?']
+            : isOneOnOne
+            ? ['How is your workload feeling this week?', 'What went well and where do you need extra support?', 'Are there any process adjustments that would help?']
+            : ['Can you share an update on your current deliverables?', 'Do you need input or approvals from anyone in the group?', 'What are the next action items for your workstream?'],
+          myPoints: [
+            tasks[0] ? `Progressing on ${tasks[0].title}.` : 'Current sprint deliverables are progressing according to plan.',
+            tasks[1] ? `Next priority is ${tasks[1].title}.` : 'Ready to pick up the next priority item from the backlog.',
+            'Continuing focused execution on assigned workstream milestones.',
+          ],
+          suggestedPhrases: [
+            tasks[0] ? `I am currently working on ${tasks[0].title} and anticipate finishing it today.` : 'I am working on my scheduled tasks and on track for today.',
+            'I prefer to post my detailed bullet points in the meeting chat.',
+            'I will follow up in writing immediately after the meeting.',
+          ],
+          whatToExpect: {
+            duration: `${durationMin} minutes`,
+            speakingExpectation: isStandup ? 'Short 1-2 minute turn when your name is called in round-robin order.' : 'Collaborative discussion with turn-taking.',
+            cameraRequired: isOneOnOne,
+          },
+          why: 'Anticipates key discussion themes to eliminate spontaneous speaking anxiety.',
+        };
+      }
+
       setPrepData({ meeting: e, data: res });
       setSavedPhrasesSuccess(false);
       await feedback.confirm();
@@ -470,6 +511,84 @@ export default function DayScreen() {
                 />
               </View>
             </View>
+
+            {/* Inline Meeting Briefing */}
+            {prepData && prepData.meeting.id === e.id ? (
+              <View style={{ marginTop: 8, padding: 12, borderWidth: 2, borderColor: '#5572ee', borderRadius: 8, backgroundColor: 'rgba(85,114,238,0.06)', gap: 8 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <AppText variant="h2">Briefing: {prepData.meeting.title}</AppText>
+                  <AppButton
+                    kind="secondary"
+                    label="Close"
+                    accessibilityLabel="Close meeting briefing"
+                    onPress={() => setPrepData(null)}
+                  />
+                </View>
+                <AiBadge why={prepData.data.why} />
+
+                <View style={{ gap: 8, marginTop: 4 }}>
+                  <View style={{ gap: 2 }}>
+                    <AppText style={{ fontWeight: '700' }}>Purpose:</AppText>
+                    <AppText>{prepData.data.purpose}</AppText>
+                  </View>
+
+                  <View style={{ gap: 2, padding: 8, backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 6 }}>
+                    <AppText style={{ fontWeight: '700' }}>What to expect:</AppText>
+                    <AppText>• Duration: {prepData.data.whatToExpect.duration}</AppText>
+                    <AppText>• Turn: {prepData.data.whatToExpect.speakingExpectation}</AppText>
+                    <AppText>• Camera: {prepData.data.whatToExpect.cameraRequired ? 'Camera expected' : 'Camera optional'}</AppText>
+                  </View>
+
+                  <View style={{ gap: 2 }}>
+                    <AppText style={{ fontWeight: '700' }}>Likely questions:</AppText>
+                    {prepData.data.likelyQuestions.map((q, idx) => (
+                      <AppText key={idx} variant="muted">{idx + 1}. {q}</AppText>
+                    ))}
+                  </View>
+
+                  <View style={{ gap: 2 }}>
+                    <AppText style={{ fontWeight: '700' }}>Your points:</AppText>
+                    {prepData.data.myPoints.map((pt, idx) => (
+                      <AppText key={idx} variant="muted">• {pt}</AppText>
+                    ))}
+                  </View>
+
+                  <View style={{ gap: 4 }}>
+                    <AppText style={{ fontWeight: '700' }}>Suggested AAC phrases:</AppText>
+                    {prepData.data.suggestedPhrases.map((phrase, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2 }}>
+                        <AppText style={{ flex: 1, fontStyle: 'italic' }}>“{phrase}”</AppText>
+                        <AppButton
+                          kind="secondary"
+                          label="Copy"
+                          accessibilityLabel={`Copy phrase: ${phrase}`}
+                          onPress={async () => {
+                            await Clipboard.setStringAsync(phrase);
+                            await feedback.confirm();
+                          }}
+                        />
+                      </View>
+                    ))}
+                  </View>
+
+                  <View style={{ gap: 8, marginTop: 8 }}>
+                    <AppButton
+                      kind="secondary"
+                      label={savedPhrasesSuccess ? 'Phrases saved to Speak for me!' : 'Add phrases to Speak for me'}
+                      hint="Saves suggested phrases to your personal quick phrases"
+                      accessibilityLabel="Save suggested phrases to personal quick phrases in Speak for me"
+                      onPress={addSuggestedPhrasesToAAC}
+                      disabled={savedPhrasesSuccess}
+                    />
+                    <AppButton
+                      label="Open in Speak for me"
+                      accessibilityLabel="Open this meeting in Speak for me"
+                      onPress={() => router.push({ pathname: '/speak', params: { meeting: prepData.meeting.title } })}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : null}
           </View>
         ))}
         </View>
