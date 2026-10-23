@@ -178,7 +178,7 @@ export default function SupportScreen() {
       {overloadWarning && (
         <Card style={{ borderColor: c.primary, borderWidth: 2, gap: 8 }}>
           <AppText variant="h2" accessibilityRole="alert">
-            ⚡ Overload early-warning detected
+            Overload early-warning detected
           </AppText>
           <AppText>{overloadWarning}</AppText>
           <AppButton
@@ -284,9 +284,9 @@ export default function SupportScreen() {
               <AppText style={{ fontWeight: '700' }}>Subject: </AppText>
               {subject}
             </AppText>
-            <View style={{ height: 1, backgroundColor: c.border, marginVertical: 4 }} />
+            <View style={{ height: 1, backgroundColor: c.border, marginVertical: 4 }} aria-hidden={true} importantForAccessibility="no" />
             <AppText>{body}</AppText>
-            <AppText variant="muted" style={{ fontSize: Math.max(12, font.small - 1), marginTop: 4 }}>
+            <AppText variant="muted" style={{ marginTop: 4 }}>
               —{'\n'}Written with the help of VibeCheck, reviewed and sent by {profile?.displayName || 'me'}.
             </AppText>
           </Card>
