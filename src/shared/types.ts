@@ -51,6 +51,7 @@ export interface UserProfile {
   consent: { healthData: boolean; aiProcessing: boolean; acceptedAt?: ISODateTime };
   onboarded: boolean;
   demoPersona?: 'ioana' | 'matei' | 'elena';
+  seedVersion?: number;
 }
 
 /** All metrics are 1..10 with factual anchors (no emojis). See METRICS[key].direction. */
