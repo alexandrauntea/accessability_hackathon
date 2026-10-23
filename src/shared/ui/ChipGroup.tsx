@@ -21,9 +21,10 @@ export function ChipGroup<T extends string>({
   return (
     <View accessibilityRole="list" accessibilityLabel={label} style={{ gap: space.xs, width: '100%', maxWidth: '100%', alignSelf: 'stretch' }}>
       <AppText variant="h2">{label}</AppText>
-      <View style={{ gap: space.sm, width: '100%', maxWidth: '100%', alignSelf: 'stretch' }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, width: '100%', maxWidth: '100%', alignSelf: 'stretch' }}>
         {options.map((o) => {
           const on = selected.includes(o.value);
+          const isLong = o.label.length > 40 || o.label.includes('\n');
           return (
             <Pressable
               key={o.value}
@@ -39,8 +40,9 @@ export function ChipGroup<T extends string>({
               accessibilityLabel={`${o.label}, ${on ? 'checked' : 'not checked'}`}
               style={(s: any) => ({
                 minHeight: 48,
-                alignSelf: 'stretch',
-                width: '100%',
+                alignSelf: isLong ? 'stretch' : 'flex-start',
+                width: isLong ? '100%' : undefined,
+                flexBasis: isLong ? '100%' : 'auto',
                 maxWidth: '100%',
                 minWidth: 0,
                 paddingHorizontal: space.md,

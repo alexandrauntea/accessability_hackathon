@@ -16,7 +16,7 @@ export function IconHeader({
   title: string;
   subtitle?: string;
 }) {
-  const { c } = useTheme();
+  const { c, layout } = useTheme();
   return (
     <View style={{ gap: space.xs }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
@@ -25,7 +25,7 @@ export function IconHeader({
           {title}
         </AppText>
       </View>
-      {subtitle ? <AppText variant="muted">{subtitle}</AppText> : null}
+      {subtitle ? <AppText variant="muted" style={{ maxWidth: layout.maxWidth.reading }}>{subtitle}</AppText> : null}
     </View>
   );
 }
