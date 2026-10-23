@@ -1,104 +1,71 @@
-// Owner: Andreea. Demo tools: turn THIS account into one persona with 6 weeks of check-ins.
-// Use one browser profile / phone per persona (3 separate accounts).
+// Owner: Andreea & Alexandra. Demo tools: reset Ioana Popescu demo state & toggle AI mode.
 import React, { useState } from 'react';
-import { collection, doc, writeBatch } from 'firebase/firestore';
-import { db, auth } from '@/src/shared/firebase';
+import { View } from 'react-native';
 import { AppButton, AppText, Card } from '@/src/shared/ui';
-import { useProfile } from '@/src/shared/hooks/useProfile';
-import { todayISO } from '@/src/shared/dates';
-import { deriveCapacity } from '@/src/shared/metrics';
-import { PERSONAS, PersonaId, personaMetrics } from '@/src/mocks/personas';
-import type { Checkin } from '@/src/shared/types';
-
-export async function seedPersonaCheckins(id: PersonaId, days = 42): Promise<number> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return 0;
-  const batch = writeBatch(db);
-  const colRef = collection(db, 'users', uid, 'checkins');
-  let count = 0;
-
-  for (let i = days; i >= 1; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const wd = d.getDay();
-    if (wd === 0 || wd === 6) continue; // skip weekends
-    const p = personaMetrics(id, i, wd);
-    const date = todayISO(d);
-    const { capacityScore, capacity } = deriveCapacity(p.metrics);
-    const checkin: Checkin = {
-      date,
-      metrics: p.metrics,
-      sleepHours: p.sleepHours,
-      symptoms: p.symptoms,
-      workedLateYesterday: p.late,
-      source: 'manual',
-      capacityScore,
-      capacity,
-      createdAt: d.toISOString(),
-    };
-    batch.set(doc(colRef, date), checkin);
-    count++;
-  }
-
-  await batch.commit();
-  return count;
-}
+import { useAuth } from '@/src/shared/hooks/useAuth';
+import { setForcedAiMode, getEffectiveAiMode } from '@/src/shared/config';
 
 export function DemoPersonaPicker({ onSeeded }: { onSeeded?: () => void }) {
-  const { profile, update } = useProfile();
-  const [busy, setBusy] = useState<PersonaId | null>(null);
+  const { user, isDemoUser, resetDemoData } = useAuth();
+  const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [aiMode, setAiMode] = useState<'live' | 'fallback'>(getEffectiveAiMode());
 
-  async function apply(id: PersonaId) {
-    setBusy(id);
+  // Only show demo tools for demo accounts or when demo tools flag is active
+  if (!isDemoUser && process.env.EXPO_PUBLIC_DEMO_TOOLS !== 'true') {
+    return null;
+  }
+
+  async function handleReset() {
+    setBusy(true);
     setFeedback(null);
     try {
-      const p = PERSONAS[id];
-      await update({
-        displayName: p.displayName,
-        jobTitle: p.jobTitle,
-        categories: [p.category],
-        conditions: p.conditions,
-        trackedMetrics: p.trackedMetrics,
-        disclosure: p.disclosure,
-        demoPersona: id,
-        onboarded: true,
-        managerName: 'Radu',
-        managerEmail: process.env.EXPO_PUBLIC_DEMO_MANAGER_EMAIL ?? '',
-        hrEmail: process.env.EXPO_PUBLIC_DEMO_HR_EMAIL ?? '',
-        consent: { healthData: true, aiProcessing: true, acceptedAt: new Date().toISOString() },
-      });
-      const count = await seedPersonaCheckins(id);
-      setFeedback(`Loaded ${p.displayName} profile and seeded ${count} check-ins.`);
+      const count = await resetDemoData();
+      setFeedback(`Reset Ioana Popescu demo account: seeded ${count} check-ins, tasks, calendar, and prior request.`);
       onSeeded?.();
     } catch {
-      setFeedback('Failed to seed persona. Please try again.');
+      setFeedback('Failed to reset demo data. Please try again.');
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
+  }
+
+  function toggleAiMode() {
+    const next = aiMode === 'live' ? 'fallback' : 'live';
+    setForcedAiMode(next);
+    setAiMode(next);
+    setFeedback(`AI Mode set to: ${next.toUpperCase()}`);
   }
 
   return (
     <Card>
-      <AppText variant="h2">Demo tools</AppText>
+      <AppText variant="h2">Demo tools (Ioana Popescu)</AppText>
       <AppText variant="muted">
-        Current persona: {profile?.demoPersona ? PERSONAS[profile.demoPersona]?.displayName : 'none'}. Writes profile + 6 weeks of check-ins into this account.
+        Controls for AccessABILITY demo. Resets 6-week flare history, backlog tasks, calendar, and tests AI fallbacks.
       </AppText>
+
       {feedback ? (
         <AppText style={{ fontWeight: '700' }} accessibilityLiveRegion="polite">
           {feedback}
         </AppText>
       ) : null}
-      {(Object.keys(PERSONAS) as PersonaId[]).map((id) => (
+
+      <View style={{ gap: 8, marginTop: 4 }}>
         <AppButton
-          key={id}
           kind="secondary"
-          busy={busy === id}
-          label={`Be ${PERSONAS[id].displayName} (${PERSONAS[id].category})`}
-          hint={PERSONAS[id].story}
-          onPress={() => apply(id)}
+          busy={busy}
+          label="Reset demo data (Ioana Popescu)"
+          hint="Restores fresh Day 1 flare state with 6-week history"
+          onPress={handleReset}
         />
-      ))}
+
+        <AppButton
+          kind="secondary"
+          label={`AI Mode: ${aiMode.toUpperCase()} (Tap to toggle)`}
+          hint={aiMode === 'live' ? 'Switch to deterministic offline AI fallback mode' : 'Switch to live Gemini AI mode'}
+          onPress={toggleAiMode}
+        />
+      </View>
     </Card>
   );
 }

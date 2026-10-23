@@ -288,7 +288,7 @@ export default function OnboardingScreen() {
             value={name}
             onChangeText={setName}
             voice={false}
-            placeholder="e.g. Elena"
+            placeholder="e.g. Maria"
           />
 
           <AppText>
