@@ -68,19 +68,18 @@ export default function TodayScreen() {
 
   return (
     <Screen title={profile?.displayName ? `Today, ${profile.displayName}` : 'Today'} speakText={spoken}>
-      {totalCheckins === 0 ? (
-        <Card>
-          <AppText variant="h2">New here? See how VibeCheck works (1 minute)</AppText>
-          <AppText>
-            Take a quick 1-minute tour of your 10-second check-in, daily capacity score, and privacy.
-          </AppText>
-          <AppButton
-            label="See how VibeCheck works"
-            hint="Open the 1-minute interactive tutorial"
-            onPress={() => router.push('/tutorial')}
-          />
-        </Card>
-      ) : null}
+      <Card>
+        <AppText variant="h2">How VibeCheck works (1 minute)</AppText>
+        <AppText>
+          Take a quick 1-minute tour of your 10-second check-in, daily capacity score, and privacy.
+        </AppText>
+        <AppButton
+          kind="secondary"
+          label="View tutorial"
+          hint="Open the 1-minute interactive tutorial"
+          onPress={() => router.push('/tutorial')}
+        />
+      </Card>
 
       {!today ? (
         <Card>
