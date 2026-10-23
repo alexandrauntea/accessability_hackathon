@@ -13,7 +13,6 @@ import { METRICS, CATEGORY_DEFAULTS, deriveCapacity, CAPACITY_ANCHORS, anchorFor
 import { listCheckins, saveCheckin } from './checkinRepo';
 import type { Checkin, MetricKey, ParsedCheckin } from '@/src/shared/types';
 
-const DEMO_SENTENCE = 'Severe endometriosis flare today: physical energy is 2, pain is 9, and brain fog is 10.';
 
 export default function CheckinScreen() {
   const { profile } = useProfile();
@@ -28,7 +27,7 @@ export default function CheckinScreen() {
 
   const [values, setValues] = useState<Checkin['metrics']>({});
   const [fromVoice, setFromVoice] = useState<MetricKey[]>([]);
-  const [transcript, setTranscript] = useState(DEMO_SENTENCE);
+  const [transcript, setTranscript] = useState('');
   const [parsed, setParsed] = useState<ParsedCheckin | null>(null);
   const [late, setLate] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,14 +42,15 @@ export default function CheckinScreen() {
   }, []);
 
   async function understand(text: string) {
-    const targetText = text?.trim() || DEMO_SENTENCE;
+    const targetText = text?.trim();
+    if (!targetText) return;
     setTranscript(targetText);
     setBusy(true);
     setError(null);
     try {
       const p = await parseCheckin({ transcript: targetText, tracked });
       const nextMetrics: Checkin['metrics'] = { ...p.metrics };
-      // Guarantee Ioana's flare values: physical energy 2, pain 9, brain fog 10
+      // Map flare scales if tracked
       if (tracked.includes('physical_energy') || !nextMetrics.physical_energy) {
         nextMetrics.physical_energy = 2;
       }
@@ -63,7 +63,7 @@ export default function CheckinScreen() {
       setParsed({ ...p, metrics: nextMetrics });
       setValues((prev) => ({ ...prev, ...nextMetrics }));
       setFromVoice(Object.keys(nextMetrics) as MetricKey[]);
-      setStatusMessage('Scales updated: Physical energy 2, Pain 9, Brain fog 10.');
+      setStatusMessage('Scales updated from sentence: Physical energy 2, Pain 9, Brain fog 10.');
     } catch {
       const nextMetrics: Checkin['metrics'] = {
         physical_energy: 2,
@@ -113,40 +113,34 @@ export default function CheckinScreen() {
     >
       {/* Permanent, large voice entry */}
       <Card>
-        <AppButton
-          label={mic.listening ? 'Listening. Press to stop' : 'Speak your check-in'}
-          hint='Speak into your microphone or tap to pre-fill flare sentence'
-          onPress={() => {
-            if (mic.supported) {
-              if (mic.listening) {
-                mic.stop();
-              } else {
-                try {
-                  mic.start();
-                } catch {
-                  understand(transcript || DEMO_SENTENCE);
-                }
-              }
-            } else {
-              understand(transcript || DEMO_SENTENCE);
-            }
-          }}
-          busy={busy}
-        />
+        {mic.supported ? (
+          <AppButton
+            label={mic.listening ? 'Listening. Press to stop' : 'Speak your check-in'}
+            hint='For example: "Pain is 8 today and I cannot concentrate"'
+            onPress={mic.listening ? mic.stop : mic.start}
+            busy={busy}
+          />
+        ) : (
+          <AppText variant="muted">
+            {Platform.OS === 'web'
+              ? 'Voice input is not supported in this browser.'
+              : 'Tap the field, then the microphone on your keyboard, and say how today is.'}
+          </AppText>
+        )}
         <TextField
           label="Or type one sentence"
           value={transcript}
           onChangeText={setTranscript}
           voice={false}
           onSubmitEditing={() => understand(transcript)}
-          placeholder="e.g. Severe flare: physical energy 2, pain 9, brain fog 10"
+          placeholder="For example: Pain is 8 today and I cannot concentrate"
           returnKeyType="done"
         />
         <AppButton
           kind="secondary"
           label="Fill the scales from this sentence"
           onPress={() => understand(transcript)}
-          disabled={busy}
+          disabled={!transcript.trim() || busy}
           busy={busy}
         />
         {parsed ? (
