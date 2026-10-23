@@ -2,8 +2,11 @@
 import { View, ViewProps } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { space } from '../theme/tokens';
+import { useCardGrid } from './Screen';
 
-export function Card({ style, ai, ...rest }: ViewProps & { ai?: boolean }) {
+export function Card({ style, ai, fullWidth = false, ...rest }: ViewProps & { ai?: boolean; fullWidth?: boolean }) {
+  const inGrid = useCardGrid();
+  const isGridItem = Boolean(inGrid && !fullWidth);
   const { c, radius, a11y } = useTheme();
   const isPlain = a11y.highContrast || a11y.lowSensory;
   return (
@@ -15,7 +18,10 @@ export function Card({ style, ai, ...rest }: ViewProps & { ai?: boolean }) {
           borderColor: c.border,
           borderWidth: 1,
           borderRadius: radius.card,
-          width: '100%',
+          width: isGridItem ? undefined : '100%',
+          flexBasis: isGridItem ? '48%' : 'auto',
+          flexGrow: isGridItem ? 1 : 0,
+          minWidth: 0,
           maxWidth: '100%',
           overflow: 'hidden',
           padding: space.cardPadding,

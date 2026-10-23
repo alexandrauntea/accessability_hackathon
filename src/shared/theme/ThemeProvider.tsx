@@ -1,7 +1,7 @@
 ﻿// Owner: Andreea. Reads a11y prefs from the profile and exposes colours + font sizes.
 import React, { createContext, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
-import { baseFont, palettes, Palette, radius as baseRadius, space as baseSpace } from './tokens';
+import { baseFont, palettes, Palette, radius as baseRadius, space as baseSpace, layout } from './tokens';
 import type { AccessibilityPrefs } from '../types';
 
 export const defaultA11y: AccessibilityPrefs = {
@@ -16,6 +16,7 @@ interface Theme {
   a11y: AccessibilityPrefs;
   radius: typeof baseRadius;
   space: typeof baseSpace;
+  layout: typeof layout;
   motion: boolean;
 }
 const Ctx = createContext<Theme | null>(null);
@@ -29,7 +30,7 @@ export function ThemeProvider({ prefs, children }: { prefs?: AccessibilityPrefs;
     const font = { body: baseFont.body * s, small: baseFont.small * s, title: baseFont.title * s, h2: baseFont.h2 * s };
     const radius = a11y.lowSensory ? { sm: 0, md: 0, card: 0, pill: 0 } : baseRadius; // brutalist, square
     const motion = !(a11y.reduceMotion || a11y.lowSensory);
-    return { c, font, family: a11y.dyslexiaFont ? 'AtkinsonHyperlegible_400Regular' : undefined, a11y, radius, space: baseSpace, motion };
+    return { c, font, family: a11y.dyslexiaFont ? 'AtkinsonHyperlegible_400Regular' : undefined, a11y, radius, space: baseSpace, layout, motion };
   }, [JSON.stringify(a11y), scheme]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
