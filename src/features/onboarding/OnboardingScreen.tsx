@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
-import { AppButton, AppText, Card, ChipGroup, Screen, TextField } from '@/src/shared/ui';
+import { AppButton, AppText, Card, ChipGroup, IconHeader, Screen, TextField } from '@/src/shared/ui';
 import { useProfile } from '@/src/shared/hooks/useProfile';
 import { useFeedback } from '@/src/shared/hooks/useFeedback';
 import { useTheme } from '@/src/shared/theme/ThemeProvider';
@@ -16,7 +16,7 @@ import type { AccessibilityPrefs, MetricKey, UserCategory } from '@/src/shared/t
 export default function OnboardingScreen() {
   const { profile, updateProfile, loading } = useProfile();
   const { confirm } = useFeedback();
-  const { c, radius } = useTheme();
+  const { c, radius, space } = useTheme();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile?.displayName ?? '');
@@ -42,8 +42,8 @@ export default function OnboardingScreen() {
 
   if (loading || !profile) {
     return (
-      <Screen title="Welcome to VibeCheck" speakText="Loading your profile.">
-        <AppText>Loading profile�</AppText>
+      <Screen title="Welcome to VibeCheck" subtitle="Loading your profile" speakText="Loading your profile.">
+        <AppText>Loading profile…</AppText>
       </Screen>
     );
   }
@@ -95,15 +95,60 @@ export default function OnboardingScreen() {
   ];
 
   return (
-    <Screen title="Welcome to VibeCheck" speakText={speakTexts[step]}>
+    <Screen
+      title="Welcome to VibeCheck"
+      subtitle="Set up your profile and preferences in 4 quick steps"
+      speakText={speakTexts[step]}
+    >
+      {/* Step Progress Pill Indicator */}
+      <View
+        accessibilityRole="tablist"
+        accessibilityLabel="Onboarding progress"
+        style={{ flexDirection: 'row', gap: space.xs, marginBottom: space.xs }}
+      >
+        {['Affects', 'Metrics', 'Preferences', 'Privacy'].map((stepLabel, idx) => {
+          const isActive = step === idx;
+          const isDone = step > idx;
+          return (
+            <View
+              key={stepLabel}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`Step ${idx + 1} of 4: ${stepLabel}${isActive ? ', current' : isDone ? ', completed' : ''}`}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: space.sm,
+                borderRadius: radius.pill,
+                backgroundColor: isActive ? c.accent : isDone ? c.accentSoft : c.surface,
+                borderWidth: 1,
+                borderColor: isActive ? c.accent : isDone ? c.border : c.border,
+              }}
+            >
+              <AppText
+                variant="small"
+                style={{
+                  fontWeight: isActive ? '700' : '600',
+                  fontSize: 12,
+                  color: isActive ? c.onPrimary : isDone ? c.onAccentSoft : c.textMuted,
+                }}
+              >
+                {isDone ? `${stepLabel}` : `${idx + 1}. ${stepLabel}`}
+              </AppText>
+            </View>
+          );
+        })}
+      </View>
+
       {step === 0 && (
         <Card>
-          <AppText variant="h2">Step 1 of 4: What affects your work?</AppText>
-          <AppText variant="muted">
-            Choose any categories that apply. We ask only your category, never a diagnosis or medical details.
-          </AppText>
+          <IconHeader
+            icon="body-outline"
+            title="Step 1 of 4: What affects your work?"
+            subtitle="Choose any categories that apply. We ask only your category, never a diagnosis or medical details."
+          />
 
-          <View style={{ gap: 12, marginVertical: 8 }}>
+          <View style={{ gap: space.sm, marginVertical: space.sm }}>
             {(Object.keys(CATEGORY_DEFAULTS) as UserCategory[]).map((catKey) => {
               const def = CATEGORY_DEFAULTS[catKey];
               const isSelected = cats.includes(catKey);
@@ -122,6 +167,10 @@ export default function OnboardingScreen() {
                     }
                   }}
                   style={({ focused }: any) => ({
+                    alignSelf: 'stretch',
+                    width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
                     cursor: 'pointer',
                     outlineStyle: focused ? 'solid' : undefined,
                     outlineWidth: focused ? 3 : 0,
@@ -132,30 +181,32 @@ export default function OnboardingScreen() {
                 >
                   <Card
                     style={{
-                      borderWidth: 2,
-                      borderColor: isSelected ? c.primary : c.border,
-                      gap: 8,
+                      borderWidth: 1.5,
+                      borderColor: isSelected ? c.accent : c.border,
+                      backgroundColor: isSelected ? c.accentSoft : c.surface,
+                      gap: space.xs,
+                      padding: space.md,
                     }}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <AppText variant="h2" style={{ color: isSelected ? c.primary : c.text, flex: 1 }}>
-                        {isSelected ? '✓ ' : ''}{def.label}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
+                      <AppText variant="h2" style={{ color: isSelected ? c.onAccentSoft : c.text, flex: 1, fontWeight: '700' }}>
+                        {def.label}
                       </AppText>
                       <View
                         style={{
                           minHeight: 36,
                           minWidth: 84,
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                          borderRadius: radius.sm,
-                          backgroundColor: isSelected ? c.primary : 'transparent',
+                          paddingHorizontal: space.sm,
+                          paddingVertical: space.xs,
+                          borderRadius: radius.pill,
+                          backgroundColor: isSelected ? c.accent : 'transparent',
                           borderWidth: 1,
-                          borderColor: isSelected ? c.primary : c.border,
+                          borderColor: isSelected ? c.accent : c.border,
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
-                        <AppText style={{ color: isSelected ? c.onPrimary : c.text, fontWeight: '700' }}>
+                        <AppText style={{ color: isSelected ? c.onPrimary : c.text, fontWeight: '700', fontSize: 13 }}>
                           {isSelected ? 'Selected' : 'Select'}
                         </AppText>
                       </View>
@@ -178,10 +229,11 @@ export default function OnboardingScreen() {
 
       {step === 1 && (
         <Card>
-          <AppText variant="h2">Step 2 of 4: What to track</AppText>
-          <AppText variant="muted">
-            Choose 2 or 3 metrics. Tracking fewer scales keeps your daily check-in under 10 seconds. You can always change this later in Me.
-          </AppText>
+          <IconHeader
+            icon="options-outline"
+            title="Step 2 of 4: What to track"
+            subtitle="Choose 2 or 3 metrics. Tracking fewer scales keeps your daily check-in under 10 seconds. You can always change this later in Me."
+          />
 
           <ChipGroup
             label={`Selected ${metrics.length} of 3 (minimum 2)`}
@@ -193,7 +245,7 @@ export default function OnboardingScreen() {
             onToggle={toggleMetric}
           />
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.sm }}>
             <View style={{ flex: 1 }}>
               <AppButton
                 kind="secondary"
@@ -216,10 +268,11 @@ export default function OnboardingScreen() {
 
       {step === 2 && (
         <Card>
-          <AppText variant="h2">Step 3 of 4: Accessibility preferences</AppText>
-          <AppText variant="muted">
-            Customise how VibeCheck looks and interacts. These settings apply immediately.
-          </AppText>
+          <IconHeader
+            icon="color-palette-outline"
+            title="Step 3 of 4: Accessibility preferences"
+            subtitle="Customise how VibeCheck looks and interacts. These settings apply immediately."
+          />
 
           <ChipGroup
             label="Text size"
@@ -260,7 +313,7 @@ export default function OnboardingScreen() {
             onToggle={(k) => updateA11yPref({ [k]: !a11y[k] })}
           />
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.sm }}>
             <View style={{ flex: 1 }}>
               <AppButton
                 kind="secondary"
@@ -282,32 +335,47 @@ export default function OnboardingScreen() {
 
       {step === 3 && (
         <Card>
-          <AppText variant="h2">Step 4 of 4: Your privacy & consent</AppText>
-          <TextField
-            label="Preferred first name"
-            value={name}
-            onChangeText={setName}
-            voice={false}
-            placeholder="e.g. Elena"
+          <IconHeader
+            icon="shield-checkmark-outline"
+            title="Step 4 of 4: Consent & your details"
+            subtitle="Your data belongs to you. We store health check-ins only to adapt your day and suggest workplace accommodations."
           />
 
-          <AppText>
-            VibeCheck stores your check-ins in your private space. AI uses them only to plan your day and draft messages you approve. Nothing reaches your employer unless you review and send it.
-          </AppText>
+          <TextField
+            label="Your preferred name or nickname"
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Alex"
+            voice={false}
+          />
 
           <ChipGroup
-            label="Explicit consent"
+            label="Consent settings (required to proceed)"
             selected={
               (['healthData', 'aiProcessing'] as const).filter((k) => consent[k])
             }
             options={[
-              { value: 'healthData', label: 'I agree that VibeCheck stores my check-ins' },
-              { value: 'aiProcessing', label: 'I agree that AI processes them to help adapt my work' },
+              {
+                value: 'healthData',
+                label: 'I consent to VibeCheck storing my daily check-in scales',
+              },
+              {
+                value: 'aiProcessing',
+                label: 'I consent to AI processing my check-ins to adapt my schedule and draft requests',
+              },
             ]}
-            onToggle={(k) => setConsent((prev) => ({ ...prev, [k]: !prev[k] }))}
+            onToggle={(key) =>
+              setConsent((prev) => ({ ...prev, [key]: !prev[key] }))
+            }
           />
 
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+          <Card style={{ backgroundColor: c.accentSoft, borderColor: c.border }}>
+            <AppText variant="small" style={{ color: c.textMuted }}>
+              Privacy guarantee: Nothing is sent to your employer or manager without your explicit preview, confirmation, and send action. You can export or permanently delete your data at any time in the Me tab.
+            </AppText>
+          </Card>
+
+          <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.sm }}>
             <View style={{ flex: 1 }}>
               <AppButton
                 kind="secondary"
@@ -318,11 +386,11 @@ export default function OnboardingScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <AppButton
-                label="Complete onboarding"
-                hint="Save your profile and enter VibeCheck"
+                label="Finish setup"
+                hint="Save your preferences and start using VibeCheck"
                 onPress={finish}
-                disabled={!consent.healthData || !consent.aiProcessing}
                 busy={busy}
+                disabled={!consent.healthData || !consent.aiProcessing}
               />
             </View>
           </View>
