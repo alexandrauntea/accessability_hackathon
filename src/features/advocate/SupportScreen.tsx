@@ -129,6 +129,26 @@ export default function SupportScreen() {
         // If clarifying question returned, route to full conversation view
         router.push(`/request/${id}`);
       }
+    } catch (err: any) {
+      console.warn('Falling back to resilient local accommodation draft:', err);
+      const conditionMention = disclosure === 'specific' && profile?.conditions?.length
+        ? `related to ${profile.conditions.join(', ')}`
+        : disclosure === 'general'
+        ? 'related to a health condition'
+        : 'due to personal reasons';
+      const fallbackSubject = `Request for workplace adjustment — ${profile?.displayName || 'Support Request'}`;
+      const fallbackBody = `Dear ${profile?.managerName || 'Manager'},
+
+I am writing to request a temporary workplace adjustment ${conditionMention}. Specifically, I would benefit from: ${combined.trim() || 'redistributing upcoming deliverables and flexible pacing'}.
+
+These adjustments will allow me to maintain high-quality deliverables while managing my current capacity. I would welcome the opportunity to discuss this briefly.
+
+Best regards,
+${profile?.displayName || 'Employee'}`;
+      setSubject(fallbackSubject);
+      setBody(fallbackBody);
+      setDraftReady(true);
+      await confirmFeedback();
     } finally {
       setBusy(false);
     }

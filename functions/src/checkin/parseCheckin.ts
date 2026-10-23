@@ -78,12 +78,54 @@ export const parseCheckin = onCall(
 Spoken sentence: """${transcript}"""
 Return JSON matching schema: { "metrics": { [key]: number }, "symptoms": string[], "notes": string, "unclear": string[] }`;
 
-    const out = await generateJson({
-      system: SYSTEM,
-      prompt,
-      schema: OutSchema,
-      temperature: 0.1,
-    });
+    let out: { metrics?: Record<string, number>; symptoms?: string[]; notes?: string; unclear?: string[] };
+    try {
+      out = await generateJson({
+        system: SYSTEM,
+        prompt,
+        schema: OutSchema,
+        temperature: 0.1,
+      });
+    } catch (err: any) {
+      // Deterministic regex parsing fallback for when Gemini quota is exhausted
+      const fallbackMetrics: Record<string, number> = {};
+      const lower = transcript.toLowerCase();
+
+      // Pain
+      const painMatch = lower.match(/(?:pain|durere|dureri).*?([0-9]|10)/);
+      if (painMatch) fallbackMetrics['pain'] = parseInt(painMatch[1], 10);
+      else if (/high pain|durere mare|dureri mari/i.test(lower)) fallbackMetrics['pain'] = 8;
+      else if (/mild pain|durere mica/i.test(lower)) fallbackMetrics['pain'] = 3;
+
+      // Energy
+      const energyMatch = lower.match(/(?:energy|energie).*?([0-9]|10)/);
+      if (energyMatch) fallbackMetrics['physical_energy'] = parseInt(energyMatch[1], 10);
+      else if (/low energy|exhausted|obosit|epuizat|fara energie/i.test(lower)) fallbackMetrics['physical_energy'] = 2;
+      else if (/good energy|energie buna|fresh/i.test(lower)) fallbackMetrics['physical_energy'] = 8;
+
+      // Brain fog
+      const fogMatch = lower.match(/(?:brain fog|fog|ceata).*?([0-9]|10)/);
+      if (fogMatch) fallbackMetrics['brain_fog'] = parseInt(fogMatch[1], 10);
+      else if (/brain fog|can't think|ceata mentala|nu ma pot concentra/i.test(lower)) fallbackMetrics['brain_fog'] = 7;
+
+      // Focus
+      const focusMatch = lower.match(/(?:focus|concentrare).*?([0-9]|10)/);
+      if (focusMatch) fallbackMetrics['focus'] = parseInt(focusMatch[1], 10);
+      else if (/can't focus|nu ma pot concentra/i.test(lower)) fallbackMetrics['focus'] = 3;
+      else if (/good focus|concentrare buna/i.test(lower)) fallbackMetrics['focus'] = 8;
+
+      // Anxiety
+      const anxMatch = lower.match(/(?:anxiety|anxietate).*?([0-9]|10)/);
+      if (anxMatch) fallbackMetrics['anxiety'] = parseInt(anxMatch[1], 10);
+      else if (/anxious|panicked|anxios/i.test(lower)) fallbackMetrics['anxiety'] = 8;
+
+      out = {
+        metrics: fallbackMetrics,
+        symptoms: [],
+        notes: `Extracted ratings directly from your check-in notes: ${transcript}`,
+        unclear: [],
+      };
+    }
 
     // Post-processing in code:
     // 1. Drop any key not in the user's tracked list

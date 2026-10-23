@@ -66,9 +66,19 @@ Return JSON: { "text", "why" }.`;
         why: 'Reframed calmly to communicate priorities and reduce anxiety.',
       };
     } else {
-      const text = draft.trim()
-        ? (draft.endsWith('.') ? draft : `${draft}.`)
-        : `I agree with this direction and will follow up with the completed items by the end of today.`;
+      let text = draft.trim();
+      if (!text) {
+        text = 'I agree with this direction and will follow up with the completed items by the end of today.';
+      } else {
+        const clean = text.replace(/^[a-z]/, (c) => c.toUpperCase());
+        if (/nu cred|i don't think|maybe|cred ca|not sure/i.test(clean)) {
+          text = `Regarding this point: ${clean.replace(/^[., ]+/, '')} I would recommend that we align on these details before proceeding.`;
+        } else if (/help|ajutor|blocat|blocked|issue|problema/i.test(clean)) {
+          text = `I wanted to raise a key item: ${clean}. Could we coordinate for a few minutes to align on the next steps?`;
+        } else {
+          text = `Regarding ${meetingTitle || 'our discussion'}: ${clean}${clean.endsWith('.') ? '' : '.'} I will ensure this is tracked with the team.`;
+        }
+      }
       result = {
         text: text.slice(0, 400),
         why: 'Clarified into a direct, professional statement suitable for meetings.',
