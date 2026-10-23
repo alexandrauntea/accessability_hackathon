@@ -1,10 +1,10 @@
-﻿// Owner: Alexandra. Turns a rough note (or task list) into a clear, professional meeting contribution.
+// Owner: Alexandra. Turns a rough note (or task list) into a clear, professional meeting contribution.
 import { onCall } from 'firebase-functions/v2/https';
-import { logger } from 'firebase-functions';
 import { z } from 'zod';
 import { generateJson, GEMINI_API_KEY } from '../lib/ai';
 import { requireAuth, REGION } from '../lib/auth';
-import type { MeetingContribution } from '../lib/types';
+import { composeContributionFallback } from '../lib/aiFallbacks';
+import type { MeetingContribution, WorkTask, Checkin } from '../lib/types';
 
 const Out = z.object({
   text: z.string().max(600),
@@ -40,51 +40,14 @@ User's notes: """${draft.slice(0, 1500)}"""
 ${effectiveMode === 'status_update' ? `Open tasks: ${JSON.stringify(tasks.slice(0, 10))}` : ''}
 Return JSON: { "text", "why" }.`;
 
-  let result: z.infer<typeof Out>;
-  try {
-    result = await generateJson({ system: SYSTEM, prompt, schema: Out, temperature: 0.3 });
-  } catch (err: any) {
-    logger.warn('AI unavailable for composeContribution, falling back to deterministic response', { error: String(err?.message ?? err) });
-    if (effectiveMode === 'status_update') {
-      const active = tasks.filter((t) => t.status !== 'done');
-      const inProg = active.filter((t) => t.status === 'in_progress').map((t) => t.title).join(', ');
-      const blocked = active.filter((t) => t.status === 'blocked').map((t) => t.title).join(', ');
-      let text = 'For my update today: ';
-      if (inProg) text += `I am currently progressing on ${inProg}. `;
-      if (blocked) text += `I need alignment on ${blocked} to unblock next steps. `;
-      if (!inProg && !blocked) text += 'My assigned tasks are on track and I am ready for the next priorities.';
-      result = {
-        text: text.slice(0, 400),
-        why: 'Structured directly from your active tasks (in progress and blocked).',
-      };
-    } else if (effectiveMode === 'calm') {
-      const text = draft.trim()
-        ? `Regarding our discussion on ${meetingTitle || 'the project'}: I wanted to check in calmly to make sure we are aligned on the priorities and deliverables. ${draft}`
-        : `Hi team, I would like to check in on our current progress and ensure we are aligned on next steps.`;
-      result = {
-        text: text.slice(0, 400),
-        why: 'Reframed calmly to communicate priorities and reduce anxiety.',
-      };
-    } else {
-      let text = draft.trim();
-      if (!text) {
-        text = 'I agree with this direction and will follow up with the completed items by the end of today.';
-      } else {
-        const clean = text.replace(/^[a-z]/, (c) => c.toUpperCase());
-        if (/nu cred|i don't think|maybe|cred ca|not sure/i.test(clean)) {
-          text = `Regarding this point: ${clean.replace(/^[., ]+/, '')} I would recommend that we align on these details before proceeding.`;
-        } else if (/help|ajutor|blocat|blocked|issue|problema/i.test(clean)) {
-          text = `I wanted to raise a key item: ${clean}. Could we coordinate for a few minutes to align on the next steps?`;
-        } else {
-          text = `Regarding ${meetingTitle || 'our discussion'}: ${clean}${clean.endsWith('.') ? '' : '.'} I will ensure this is tracked with the team.`;
-        }
-      }
-      result = {
-        text: text.slice(0, 400),
-        why: 'Clarified into a direct, professional statement suitable for meetings.',
-      };
-    }
-  }
+  const result = await generateJson({
+    fnName: 'composeContribution',
+    system: SYSTEM,
+    prompt,
+    schema: Out,
+    temperature: 0.3,
+    fallback: () => composeContributionFallback({ draft, meetingTitle, tasks: tasks as any, mode: effectiveMode }),
+  });
 
   const response: MeetingContribution = {
     text: result.text,

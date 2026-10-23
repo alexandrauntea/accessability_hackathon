@@ -1,8 +1,12 @@
-﻿import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { ScrollView, StyleProp, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { layout, space } from '../theme/tokens';
+import { AppText } from './AppText';
+import { SpeakButton } from './SpeakButton';
+import { useSpeech } from '../hooks/useSpeech';
+import { ErrorBoundary } from './ErrorBoundary';
 
 export const CardGridContext = createContext<boolean>(false);
 export function useCardGrid() { return useContext(CardGridContext); }
@@ -18,9 +22,6 @@ export function CardGrid({ children, style }: { children: React.ReactNode; style
     </CardGridContext.Provider>
   );
 }
-import { AppText } from './AppText';
-import { SpeakButton } from './SpeakButton';
-import { useSpeech } from '../hooks/useSpeech';
 
 /**
  * Every screen uses this: single centred content column (max width 600px on web, full width on phone),
@@ -97,7 +98,17 @@ export function Screen({
             </View>
           ) : null}
         </View>
-        <CardGridContext.Provider value={isGrid}>{isGrid ? <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: space.cardGap, alignItems: 'stretch' }}>{children}</View> : children}</CardGridContext.Provider>
+        <ErrorBoundary>
+          <CardGridContext.Provider value={isGrid}>
+            {isGrid ? (
+              <View style={{ width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: space.cardGap, alignItems: 'stretch' }}>
+                {children}
+              </View>
+            ) : (
+              children
+            )}
+          </CardGridContext.Provider>
+        </ErrorBoundary>
       </ScrollView>
     </SafeAreaView>
   );

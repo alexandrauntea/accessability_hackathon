@@ -1,4 +1,4 @@
-﻿export * from './AppText';
+export * from './AppText';
 export * from './AppButton';
 export * from './Card';
 export * from './Screen';
@@ -10,3 +10,4 @@ export * from './AiBadge';
 export * from './StatCard';
 export * from './SegmentedControl';
 export * from './IconHeader';
+export * from './ErrorBoundary';

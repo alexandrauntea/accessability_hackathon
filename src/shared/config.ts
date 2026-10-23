@@ -1,6 +1,22 @@
 // Feature flags from .env. Each integration flips independently from mock to real.
 const flag = (v: string | undefined, def = true) => (v === undefined ? def : v === 'true');
 
+// ============================================================================
+// AI MODE: Schimba aici intre 'fallback' (instant demo) si 'live' (Gemini)
+// ============================================================================
+export const ACTIVE_AI_MODE: 'live' | 'fallback' = 'fallback';
+
+let runtimeForcedAiMode: 'live' | 'fallback' | null = null;
+
+export function setForcedAiMode(mode: 'live' | 'fallback' | null) {
+  runtimeForcedAiMode = mode;
+}
+
+export function getEffectiveAiMode(): 'live' | 'fallback' {
+  if (runtimeForcedAiMode) return runtimeForcedAiMode;
+  return ACTIVE_AI_MODE;
+}
+
 export const config = {
   mockCalendar: flag(process.env.EXPO_PUBLIC_MOCK_CALENDAR),
   mockTasks: flag(process.env.EXPO_PUBLIC_MOCK_TASKS),
@@ -8,4 +24,7 @@ export const config = {
   useEmulators: flag(process.env.EXPO_PUBLIC_USE_EMULATORS, false),
   functionsRegion: process.env.EXPO_PUBLIC_FUNCTIONS_REGION ?? 'europe-west1',
   googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
+  get aiMode() {
+    return getEffectiveAiMode();
+  },
 };

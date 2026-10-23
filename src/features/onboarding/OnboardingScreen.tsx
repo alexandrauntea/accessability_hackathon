@@ -345,7 +345,7 @@ export default function OnboardingScreen() {
             label="Your preferred name or nickname"
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Alex"
+            placeholder="e.g. Maria"
             voice={false}
           />
 

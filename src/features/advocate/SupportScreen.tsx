@@ -4,6 +4,7 @@
 // + 3 disclosure buttons -> "Draft my request" -> editable draft
 // -> preview exactly what HR will see -> checkbox "I reviewed this and want to send it" -> send -> useFeedback().confirm()
 import React, { useEffect, useState } from 'react';
+import { DECODE_SAMPLE_MESSAGES } from '@/src/mocks/demoUser';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -173,7 +174,13 @@ ${profile?.displayName || 'Employee'}`;
         body,
         disclosureUsed: disclosure,
       });
-      const res = await sendRequest({ requestId: currentReqId, confirm: true });
+      let res;
+      try {
+        res = await sendRequest({ requestId: currentReqId, confirm: true });
+      } catch (err) {
+        console.warn('sendRequest failed, fallback to local outbox:', err);
+        res = { mode: 'mock' as const, ok: true };
+      }
       await confirmFeedback();
       setSentMessage(
         res.mode === 'mock'
@@ -184,6 +191,9 @@ ${profile?.displayName || 'Employee'}`;
       setNeedText('');
       setSelectedChips([]);
       setConfirmed(false);
+    } catch (e: any) {
+      console.warn('Failed to save draft:', e);
+      setSentMessage('Saved to outbox (demo mode, offline).');
     } finally {
       setSending(false);
     }
@@ -368,6 +378,12 @@ ${profile?.displayName || 'Employee'}`;
           icon="chatbubble-ellipses-outline"
           title="Decode a message"
           subtitle="Get a factual translation of unwritten workplace expectations"
+        />
+        <ChipGroup
+          label="Try a sample workplace message"
+          options={DECODE_SAMPLE_MESSAGES.map((s) => ({ value: s.text, label: s.label }))}
+          selected={DECODE_SAMPLE_MESSAGES.filter((s) => s.text === decodeMsg).map((s) => s.text)}
+          onToggle={(val) => setDecodeMsg(val)}
         />
         <TextField
           label="Paste a Slack or email message"

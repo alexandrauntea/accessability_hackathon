@@ -1,3 +1,4 @@
+import { planDayFallback } from '../lib/aiFallbacks';
 ﻿// Owner: Alexandra. Re-plans the day around today's capacity. Every change carries a reason.
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
@@ -101,45 +102,14 @@ Tasks: ${JSON.stringify(tasks.filter((t) => t.status !== 'done').map((t) => ({ i
 Return JSON: { "summary": string (2 sentences), "notificationLevel": "normal"|"reduced", "items": [{ "id", "kind", "refId"?, "title", "start"? "HH:mm", "end"?, "action", "reason", "firstStep"? }] in time order, "suggestedMessages"?: [{ "to", "channel": "email"|"slack", "text" }] }`;
 
   let out: z.infer<typeof Out>;
-  try {
-    out = await generateJson({ system: SYSTEM, prompt, schema: Out, temperature: 0.2 });
-  } catch (err: any) {
-    logger.warn('AI unavailable, falling back to deterministic plan', { error: String(err?.message ?? err) });
-    // Mocks-first fallback: build deterministic items from input events and tasks
-    const fallbackItems: z.infer<typeof Item>[] = [];
-    for (const e of events) {
-      const startHhmm = e.start?.includes('T') ? e.start.split('T')[1].slice(0, 5) : undefined;
-      const endHhmm = e.end?.includes('T') ? e.end.split('T')[1].slice(0, 5) : undefined;
-      fallbackItems.push({
-        id: e.id,
-        kind: 'event',
-        refId: e.id,
-        title: e.title,
-        start: startHhmm,
-        end: endHhmm,
-        action: e.movable ? (capacity === 'low' ? 'move' : 'keep') : 'keep',
-        reason: e.movable
-          ? (capacity === 'low' ? 'Movable meeting adjusted to conserve energy.' : 'Meeting kept during work hours.')
-          : 'Fixed core sync kept.',
-      });
-    }
-    for (const t of tasks.filter((t) => t.status !== 'done')) {
-      fallbackItems.push({
-        id: t.id,
-        kind: 'task',
-        refId: t.id,
-        title: `${t.id}: ${t.title}`,
-        action: 'keep',
-        reason: `Priority ${t.priority} task scheduled for today.`,
-      });
-    }
-    out = {
-      summary: `Adapted schedule for capacity ${capacityScore}/10 (${mode === 'hard_day' ? 'hard-day mode' : capacity}). Meetings and tasks organized to protect your energy and focus.`,
-      notificationLevel: hardDay ? 'reduced' : 'normal',
-      items: fallbackItems,
-      suggestedMessages: [],
-    };
-  }
+  out = await generateJson({
+    fnName: 'planDay',
+    system: SYSTEM,
+    prompt,
+    schema: Out,
+    temperature: 0.2,
+    fallback: () => planDayFallback({ date, checkin, categories, events, tasks, workHours, hardDay, weekdayPattern, protectDay }),
+  });
 
   // 1. Anti-hallucination: Filter out items referencing IDs not in the input
   const knownEvents = new Map(events.map((e) => [e.id, e]));

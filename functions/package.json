@@ -4,7 +4,7 @@
   "main": "lib/index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "sync-types": "node -e \"require('fs').copyFileSync('../src/shared/types.ts','src/lib/types.ts')\"",
+    "sync-types": "node -e \"require('fs').copyFileSync('../src/shared/types.ts','src/lib/types.ts'); require('fs').mkdirSync('src/lib/aiFallbacks', {recursive: true}); require('fs').copyFileSync('../src/shared/aiFallbacks/index.ts','src/lib/aiFallbacks/index.ts')\"",
     "prebuild": "npm run sync-types",
     "build": "tsc",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",

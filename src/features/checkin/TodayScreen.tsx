@@ -41,14 +41,51 @@ export default function TodayScreen() {
     try {
       const recent = await listCheckins(42);
       const computed = computeStats(recent, profile?.trackedMetrics ?? []);
-      const result = await summarizeState({
-        date: todayISO(),
-        stats: computed,
-        recent: recent.slice(0, 7),
-        simpleLanguage: !!profile?.a11y?.simpleLanguage,
-      });
+      let result;
+      try {
+        result = await summarizeState({
+          date: todayISO(),
+          stats: computed,
+          recent: recent.slice(0, 7),
+          simpleLanguage: !!profile?.a11y?.simpleLanguage,
+        });
+      } catch (err) {
+        console.warn('Falling back to deterministic state summary:', err);
+        const worstDay = [...(computed.byWeekday ?? [])].filter((d) => d.n > 0).sort((a, b) => a.avgCapacity - b.avgCapacity)[0];
+        const bestDay = [...(computed.byWeekday ?? [])].filter((d) => d.n > 0).sort((a, b) => b.avgCapacity - a.avgCapacity)[0];
+        const patterns: string[] = [];
+
+        if (worstDay && bestDay && worstDay.weekday !== bestDay.weekday) {
+          patterns.push(`Capacity averages ${worstDay.avgCapacity} on ${worstDay.label}s versus ${bestDay.avgCapacity} on ${bestDay.label}s.`);
+        }
+        if (computed.last7 && computed.prev7 && computed.prev7.avgCapacity > 0) {
+          patterns.push(`Average capacity over the last 7 workdays was ${computed.last7.avgCapacity} (compared to ${computed.prev7.avgCapacity} previously).`);
+        }
+
+        const suggestions = [
+          'Place demanding tasks during your higher-capacity days.',
+          'Keep meetings shorter and request asynchronous updates on lower-energy days.',
+        ];
+
+        const sig = overloadSignal(computed);
+
+        result = {
+          date: todayISO(),
+          headline: computed.days > 0
+            ? `Recent capacity averages ${computed.last7?.avgCapacity || 5} of 10.`
+            : 'Welcome to VibeCheck.',
+          summary: computed.days >= 7
+            ? `Over ${computed.days} recorded check-ins, your daily capacity shows identifiable weekly patterns.`
+            : 'Complete daily check-ins to build personalized weekly energy patterns.',
+          patterns: patterns.length ? patterns : ['Regular check-ins build a personal map of your energy rhythms.'],
+          suggestions,
+          overloadSignal: sig ?? undefined,
+          generatedBy: 'ai' as const,
+          model: 'fallback-deterministic',
+        };
+      }
       setSummary(result);
-    } catch {
+    } catch (e: any) {
       setError('The summary is not available right now. Your data is safe; try again in a minute.');
     } finally {
       setBusy(false);
